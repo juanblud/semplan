@@ -1,0 +1,33 @@
+.app {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.subtitle {
+    color: #555;
+}
+
+.card {
+    padding: 1.5rem;
+}
+
+button {
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-family: inherit;
+    border: 1px solid #888;
+    border-radius: 8px;
+    background-color: #f4f4f4;
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: #333;
+}
+
+button:focus-visible {
+    outline: 3px solid #4a90d9;
+    outline-offset: 2px;
+}
