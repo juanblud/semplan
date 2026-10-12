@@ -23,6 +23,7 @@ export function App() {
                 </button>
             </section>
             <span>Ian Collis</span>
+            <span>Brandon Gable</span>
         </main>
     );
 }
