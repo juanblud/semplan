@@ -25,6 +25,7 @@ export function App() {
             <span>Ian Collis</span>
             <span>Juan Rodriguez</span>
             <span>Brandon Gable</span>
+            <span>Ian Collis</span>
         </main>
     );
 }
