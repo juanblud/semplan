@@ -22,10 +22,9 @@ export function App() {
                     Clicked {count} {count === 1 ? "time" : "times"}
                 </button>
             </section>
-            <span>Ian Collis</span>
-            <span>Juan Rodriguez</span>
+            <span>Ian Collis</span> <br />
+            <span>Juan Rodriguez</span> <br />
             <span>Brandon Gable</span>
-            <span>Ian Collis</span>
         </main>
     );
 }
