@@ -13,10 +13,7 @@ export function App() {
 
     return (
         <main className="app">
-            <h1>Final Project</h1>
-            <p className="subtitle">
-                Edit <code>src/App.tsx</code> to get started.
-            </p>
+            <h1>Semester Planning Tool</h1>
             <section className="card" aria-label="Example counter">
                 <button type="button" onClick={() => setCount(count + 1)}>
                     Clicked {count} {count === 1 ? "time" : "times"}
