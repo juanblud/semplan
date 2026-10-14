@@ -1,33 +1,357 @@
-.app {
-    max-width: 40rem;
-    margin: 0 auto;
-    padding: 2rem 1rem;
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    flex: 0 0 192px;
+    min-height: 100vh;
+    padding: 12px 12px 24px;
+    border-right: 2px solid #b7b7b7;
+    background: #e0e0e0;
+    transition: flex-basis 180ms ease;
+}
+
+.sidebar-top {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 40px;
+    margin-bottom: 10px;
+}
+
+.sidebar-toggle {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #777;
+    border-radius: 5px;
+    background: #f9f9f9;
+    color: #333;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 20px;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 39px;
+    padding: 6px 8px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #333;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 18px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.nav-link:hover {
+    background: #d2d2d2;
+}
+
+.nav-link.active {
+    border-color: #333;
+    background: #d2d2d2;
+}
+
+.nav-icon {
+    display: none;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.is-collapsed .sidebar {
+    flex-basis: 60px;
+    padding-inline: 8px;
+}
+
+.is-collapsed .sidebar-top {
+    justify-content: center;
+}
+
+.is-collapsed .nav-label {
+    display: none;
+}
+
+.is-collapsed .nav-icon {
+    display: block;
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 14px 60px;
+}
+
+.home-header h1,
+.section-placeholder h1 {
+    margin: 0;
+    font-size: clamp(35px, 4vw, 47px);
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.home-header p {
+    margin: 0 0 28px 5px;
+    font-size: 20px;
+}
+
+.course-toolbar {
+    display: grid;
+    grid-template-columns: minmax(190px, 1fr) minmax(280px, 1.6fr) auto;
+    align-items: end;
+    gap: 30px;
+    margin: 0 4px 18px 17px;
+    padding: 12px 17px 24px;
+    border: 2px solid #aaa;
+    border-radius: 6px;
+    background: #e0e0e0;
+}
+
+.course-toolbar label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 20px;
+}
+
+.course-toolbar select,
+.course-toolbar input,
+.create-course {
+    height: 34px;
+    border: 2px solid #333;
+    background: #fff;
+    color: #333;
+    font: inherit;
+}
+
+.course-toolbar select {
+    width: min(100%, 205px);
+    padding: 1px 7px;
+    border-radius: 0;
+    font-size: 16px;
+}
+
+.course-toolbar input {
+    width: 100%;
+    padding: 3px 11px;
+    border-radius: 18px;
+    font-size: 14px;
+}
+
+.create-course {
+    min-width: 165px;
+    margin-bottom: 3px;
+    padding: 2px 12px;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+.create-course:disabled {
+    color: #555;
+    cursor: not-allowed;
+}
+
+.courses-section h2,
+.todo-section h2 {
+    margin: 17px 0 15px 14px;
+    font-size: 27px;
+    font-weight: 500;
+}
+
+.course-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 44px;
+    margin: 0 31px 24px 17px;
+}
+
+.course-card {
+    min-height: 170px;
+    padding: 18px 24px 10px;
+    border: 2px solid #555;
+    border-radius: 6px;
+    background: #e0e0e0;
+}
+
+.course-card h3 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+.course-card p {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.course-card button {
+    display: block;
+    width: min(100%, 255px);
+    margin: 5px auto 0;
+    padding: 7px 10px;
+    border: 2px solid #555;
+    border-radius: 5px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 17px;
+    text-align: center;
+    text-decoration: none;
+}
+
+.course-card button:hover {
+    background: #f4f4f4;
+}
+
+.empty-message {
+    margin: 0 17px 28px;
+    padding: 28px;
+    border: 2px solid #aaa;
+    border-radius: 6px;
+}
+
+.todo-section h2 {
+    margin-top: 25px;
+    margin-bottom: 12px;
+}
+
+.todo-table-wrap {
+    margin: 0 31px 0 17px;
+    overflow-x: auto;
+}
+
+.todo-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 18px;
+}
+
+.todo-table th,
+.todo-table td {
+    border: 2px solid #555;
+}
+
+.todo-table thead th {
+    padding: 4px 17px;
+    background: #e0e0e0;
+    font-size: 20px;
+    font-weight: 500;
+    text-align: left;
+}
+
+.todo-table thead th:first-child {
+    width: 28%;
+}
+
+.todo-table tbody th {
+    padding: 14px;
+    font-weight: 400;
     text-align: center;
 }
 
-.subtitle {
+.todo-table tbody td {
+    padding: 12px 8px;
+}
+
+.todo-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    line-height: 1.25;
+}
+
+.todo-item input {
+    width: 19px;
+    height: 19px;
+    flex: 0 0 19px;
+    margin: 1px 0 0;
+    accent-color: #333;
+}
+
+.todo-item input:checked + span {
+    color: #666;
+    text-decoration: line-through;
+}
+
+.section-placeholder p {
+    margin-top: 18px;
     color: #555;
+    font-size: 18px;
 }
 
-.card {
-    padding: 1.5rem;
-}
-
-button {
-    padding: 0.6em 1.2em;
-    font-size: 1em;
-    font-family: inherit;
-    border: 1px solid #888;
-    border-radius: 8px;
-    background-color: #f4f4f4;
-    cursor: pointer;
-}
-
-button:hover {
-    border-color: #333;
-}
-
-button:focus-visible {
-    outline: 3px solid #4a90d9;
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible {
+    outline: 3px solid #2363ad;
     outline-offset: 2px;
+}
+
+@media (max-width: 1000px) {
+    .course-toolbar {
+        grid-template-columns: 1fr 1.5fr;
+    }
+
+    .create-course {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    .course-grid {
+        gap: 18px;
+    }
+}
+
+@media (max-width: 700px) {
+    .app-shell:not(.is-collapsed) .sidebar {
+        position: relative;
+        z-index: 1;
+        margin-right: -132px;
+    }
+
+    .main-content {
+        padding: 20px 18px 50px;
+    }
+
+    .course-toolbar {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-inline: 0;
+    }
+
+    .create-course {
+        grid-column: auto;
+    }
+
+    .course-grid {
+        grid-template-columns: 1fr;
+        margin-inline: 0;
+    }
+
+    .todo-table-wrap {
+        margin-inline: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar {
+        transition: none;
+    }
 }
