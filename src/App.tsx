@@ -27,6 +27,10 @@ const exampleCourses: Course[] = [
     { code: "CISC 320", title: "Algorithms", semester: "Fall 2026" },
 ];
 
+function normalizeSearchText(value: string): string {
+    return value.toLowerCase().replace(/\s+/g, "");
+}
+
 export function App() {
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [page, setPage] = useState<Page>("home");
@@ -36,12 +40,13 @@ export function App() {
 
     const pageLabel =
         navigation.find((item) => item.id === page)?.label ?? "Home";
+    const normalizedSearch = normalizeSearchText(search);
     const visibleCourses = exampleCourses.filter(
         (course) =>
             course.semester === semester &&
-            `${course.code} ${course.title}`
-                .toLowerCase()
-                .includes(search.toLowerCase()),
+            normalizeSearchText(`${course.code} ${course.title}`).includes(
+                normalizedSearch,
+            ),
     );
 
     function toggleTask(index: number) {
