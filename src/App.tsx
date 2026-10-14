@@ -13,7 +13,7 @@ export function App() {
 
     return (
         <main className="app">
-            <h1>Final Project</h1>
+            <h1>Semester Planning Tool</h1>
             <p className="subtitle">
                 Edit <code>src/App.tsx</code> to get started.
             </p>
