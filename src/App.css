@@ -197,12 +197,12 @@
 }
 
 .home-header,
-.section-placeholder {
+.page-header {
     margin-bottom: 26px;
 }
 
 .home-header h1,
-.section-placeholder h1 {
+.page-header h1 {
     display: inline-block;
     margin: 0;
     padding-bottom: 6px;
@@ -455,8 +455,8 @@
     text-decoration: line-through;
 }
 
-.section-placeholder p {
-    margin-top: 14px;
+.page-header p {
+    margin: 10px 0 0;
     color: var(--muted);
     font-size: 18px;
 }
