@@ -4,8 +4,11 @@ import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
 import { PlanningNotesPage } from "./components/PlanningNotesPage";
+import { TaskViewPage } from "./components/TaskViewPage";
 
-type Page = "home" | "courses" | "calendar" | "planning-notes";
+import { initialTasks } from "./tasks";
+
+type Page = "home" | "courses" | "calendar" | "planning-notes" | "tasks";
 
 interface NavigationItem {
     id: Page;
@@ -15,14 +18,21 @@ interface NavigationItem {
 
 const navigation: NavigationItem[] = [
     { id: "home", label: "Home", icon: "🏠" },
-    { id: "courses", label: "Courses", icon: "📋" },
+    { id: "courses", label: "Courses", icon: "📖" },
     { id: "calendar", label: "Calendar", icon: "📅" },
     { id: "planning-notes", label: "Planning Notes", icon: "✏️" },
+    { id: "tasks", label: "Task View", icon: "📋" },
 ];
 
 export function App() {
+    const [tasks, setTasks] = useState(initialTasks);
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [page, setPage] = useState<Page>("home");
+
+    function navigateTo(nextPage: Page) {
+        setPage(nextPage);
+        setCollapsed(nextPage !== "home");
+    }
 
     return (
         <div className={`app-shell${collapsed ? " is-collapsed" : ""}`}>
@@ -48,7 +58,7 @@ export function App() {
                             aria-label={item.label}
                             aria-current={page === item.id ? "page" : undefined}
                             title={collapsed ? item.label : undefined}
-                            onClick={() => setPage(item.id)}
+                            onClick={() => navigateTo(item.id)}
                         >
                             <span className="nav-icon" aria-hidden="true">
                                 {item.icon}
@@ -61,12 +71,26 @@ export function App() {
 
             <main className="main-content">
                 {page === "home" ?
-                    <HomePage onOpenCourse={() => setPage("courses")} />
+                    <HomePage
+                        tasks={tasks}
+                        onToggleTask={(id) =>
+                            setTasks((current) =>
+                                current.map((task) =>
+                                    task.id === id ?
+                                        { ...task, completed: !task.completed }
+                                    :   task,
+                                ),
+                            )
+                        }
+                        onOpenCourse={() => navigateTo("courses")}
+                    />
                 : page === "courses" ?
                     <CoursesPage />
                 : page === "calendar" ?
                     <CalendarPage />
-                :   <PlanningNotesPage />}
+                : page === "planning-notes" ?
+                    <PlanningNotesPage />
+                :   <TaskViewPage tasks={tasks} setTasks={setTasks} />}
             </main>
         </div>
     );
