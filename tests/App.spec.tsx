@@ -19,6 +19,11 @@ describe("App", () => {
 
         await user.click(screen.getByRole("link", { name: "Planning Notes" }));
         expect(window.location.pathname).toBe("/Planning-Notes");
+        await user.click(screen.getByRole("link", { name: "Task View" }));
+        expect(window.location.pathname).toBe("/Task-View");
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+            "Task View",
+        );
         expect(screen.getByRole("link", { name: "Courses" })).toHaveAttribute(
             "href",
             "/Courses",
@@ -33,6 +38,19 @@ describe("App", () => {
             "Calendar",
         );
         expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute(
+            "aria-current",
+            "page",
+        );
+    });
+
+    test("opens Task View directly from its URL", () => {
+        window.history.replaceState(null, "", "/Task-View");
+        render(<App />);
+
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+            "Task View",
+        );
+        expect(screen.getByRole("link", { name: "Task View" })).toHaveAttribute(
             "aria-current",
             "page",
         );
@@ -87,7 +105,13 @@ describe("App", () => {
         expect(
             screen.getByRole("heading", { name: /semester planning tool/i }),
         ).toBeInTheDocument();
-        for (const label of ["Home", "Courses", "Calendar", "Planning Notes"]) {
+        for (const label of [
+            "Home",
+            "Courses",
+            "Calendar",
+            "Planning Notes",
+            "Task View",
+        ]) {
             expect(
                 screen.getByRole("link", { name: label }),
             ).toBeInTheDocument();

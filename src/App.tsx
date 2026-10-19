@@ -4,8 +4,11 @@ import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
 import { PlanningNotesPage } from "./components/PlanningNotesPage";
+import { TaskViewPage } from "./components/TaskViewPage";
 
-type Page = "home" | "courses" | "calendar" | "planning-notes";
+import { initialTasks } from "./tasks";
+
+type Page = "home" | "courses" | "calendar" | "planning-notes" | "tasks";
 
 interface NavigationItem {
     id: Page;
@@ -17,7 +20,7 @@ interface NavigationItem {
 
 const navigation: NavigationItem[] = [
     { id: "home", label: "Home", icon: "🏠", path: "Home" },
-    { id: "courses", label: "Courses", icon: "📋", path: "Courses" },
+    { id: "courses", label: "Courses", icon: "📖", path: "Courses" },
     { id: "calendar", label: "Calendar", icon: "📅", path: "Calendar" },
     {
         id: "planning-notes",
@@ -25,6 +28,7 @@ const navigation: NavigationItem[] = [
         icon: "✏️",
         path: "Planning-Notes",
     },
+    { id: "tasks", label: "Task View", icon: "📋", path: "Task-View" },
 ];
 
 // Vite serves the site from "/" locally and "/<repo>/" on GitHub Pages.
@@ -50,6 +54,7 @@ function getPageFromUrl(): Page {
 }
 
 export function App() {
+    const [tasks, setTasks] = useState(initialTasks);
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [page, setPage] = useState<Page>(getPageFromUrl);
 
@@ -77,6 +82,11 @@ export function App() {
         setPage(next);
     }
 
+    function navigateTo(nextPage: Page) {
+        navigate(nextPage);
+        setCollapsed(nextPage !== "home");
+    }
+
     return (
         <div className={`app-shell${collapsed ? " is-collapsed" : ""}`}>
             <aside className="sidebar" aria-label="Sidebar">
@@ -102,18 +112,8 @@ export function App() {
                             aria-current={page === item.id ? "page" : undefined}
                             title={collapsed ? item.label : undefined}
                             onClick={(event) => {
-                                // Let ctrl/cmd/shift-click open a new tab.
-                                if (
-                                    event.button !== 0 ||
-                                    event.ctrlKey ||
-                                    event.metaKey ||
-                                    event.shiftKey ||
-                                    event.altKey
-                                ) {
-                                    return;
-                                }
                                 event.preventDefault();
-                                navigate(item.id);
+                                navigateTo(item.id);
                             }}
                         >
                             <span className="nav-icon" aria-hidden="true">
@@ -127,12 +127,26 @@ export function App() {
 
             <main className="main-content">
                 {page === "home" ?
-                    <HomePage onOpenCourse={() => navigate("courses")} />
+                    <HomePage
+                        tasks={tasks}
+                        onToggleTask={(id) =>
+                            setTasks((current) =>
+                                current.map((task) =>
+                                    task.id === id ?
+                                        { ...task, completed: !task.completed }
+                                    :   task,
+                                ),
+                            )
+                        }
+                        onOpenCourse={() => navigateTo("courses")}
+                    />
                 : page === "courses" ?
                     <CoursesPage />
                 : page === "calendar" ?
                     <CalendarPage />
-                :   <PlanningNotesPage />}
+                : page === "planning-notes" ?
+                    <PlanningNotesPage />
+                :   <TaskViewPage tasks={tasks} setTasks={setTasks} />}
             </main>
         </div>
     );
