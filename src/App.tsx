@@ -87,7 +87,18 @@ export function App() {
                 : page === "courses" ?
                     <CoursesPage />
                 : page === "calendar" ?
-                    <CalendarPage />
+                    <CalendarPage
+                        tasks={tasks}
+                        onToggleTask={(id) =>
+                            setTasks((current) =>
+                                current.map((task) =>
+                                    task.id === id ?
+                                        { ...task, completed: !task.completed }
+                                    :   task,
+                                ),
+                            )
+                        }
+                    />
                 : page === "planning-notes" ?
                     <PlanningNotesPage />
                 :   <TaskViewPage tasks={tasks} setTasks={setTasks} />}
