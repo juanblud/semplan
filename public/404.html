@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Semester Planning Tool</title>
+        <script>
+            // GitHub Pages only serves real files, so refreshing a page such
+            // as /team-magenta/Calendar lands here. Send the browser to the
+            // app's index with the path in the query string
+            // (/team-magenta/?/Calendar); index.html then puts the URL back.
+            // Based on https://github.com/rafgraph/spa-github-pages.
+            //
+            // Keep 1 path segment: the repository name in the Pages URL.
+            var pathSegmentsToKeep = 1;
+            var l = window.location;
+            l.replace(
+                l.protocol +
+                    "//" +
+                    l.hostname +
+                    (l.port ? ":" + l.port : "") +
+                    l.pathname
+                        .split("/")
+                        .slice(0, 1 + pathSegmentsToKeep)
+                        .join("/") +
+                    "/?/" +
+                    l.pathname
+                        .slice(1)
+                        .split("/")
+                        .slice(pathSegmentsToKeep)
+                        .join("/")
+                        .replace(/&/g, "~and~") +
+                    (l.search ?
+                        "&" + l.search.slice(1).replace(/&/g, "~and~")
+                    :   "") +
+                    l.hash,
+            );
+        </script>
+    </head>
+    <body></body>
+</html>
