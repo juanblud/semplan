@@ -20,7 +20,7 @@ interface NavigationItem {
 
 const navigation: NavigationItem[] = [
     { id: "home", label: "Home", icon: "🏠", path: "Home" },
-    { id: "courses", label: "Courses", icon: "📋", path: "Courses" },
+    { id: "courses", label: "Courses", icon: "📖", path: "Courses" },
     { id: "calendar", label: "Calendar", icon: "📅", path: "Calendar" },
     {
         id: "planning-notes",
