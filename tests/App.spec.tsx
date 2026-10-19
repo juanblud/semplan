@@ -8,7 +8,7 @@ describe("App", () => {
         render(<App />);
 
         expect(
-            screen.getByRole("heading", { name: /semester planning tool/i }),
+            screen.getByRole("heading", { name: "ProfPlan" }),
         ).toBeInTheDocument();
         for (const label of ["Home", "Courses", "Calendar", "Planning Notes"]) {
             expect(

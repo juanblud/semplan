@@ -461,10 +461,243 @@
     font-size: 18px;
 }
 
+/* ---------- Planning notes ---------- */
+
+.planning-notes-page {
+    max-width: 1440px;
+    margin: 0 auto;
+}
+
+.notes-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+}
+
+.add-note-button,
+.save-note-button {
+    border: 0;
+    border-radius: 8px;
+    background: var(--ud-blue);
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.add-note-button {
+    flex-shrink: 0;
+    min-height: 46px;
+    padding: 8px 20px;
+    font-size: 16px;
+}
+
+.add-note-button span {
+    margin-right: 5px;
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 0;
+    vertical-align: -2px;
+}
+
+.add-note-button:hover,
+.save-note-button:hover:not(:disabled) {
+    background: var(--ud-blue-dark);
+}
+
+.note-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(100%, 620px);
+    margin: 0 auto 30px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--ud-gold);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgb(0 42 82 / 10%);
+}
+
+.note-editor label {
+    color: var(--ud-blue-dark);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.note-editor input,
+.note-editor textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #b9c6d6;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 16px;
+}
+
+.note-editor input {
+    margin-bottom: 8px;
+}
+
+.note-editor textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.note-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.note-editor-actions button {
+    min-height: 38px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+}
+
+.note-editor-actions button:first-child {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ud-blue-dark);
+}
+
+.save-note-button:disabled {
+    background: #c7d3e2;
+    color: #5a6778;
+    cursor: not-allowed;
+}
+
+.notes-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 18px;
+    color: var(--ud-blue-dark);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.notes-toolbar select {
+    min-height: 36px;
+    padding: 5px 10px;
+    border: 1px solid #b9c6d6;
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 400;
+}
+
+.notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    grid-auto-rows: 4px;
+    column-gap: 20px;
+    row-gap: 12px;
+}
+
+.note-card {
+    min-width: 0;
+    align-self: start;
+    padding: 18px 18px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 2px 7px rgb(0 42 82 / 7%);
+}
+
+.note-card h2 {
+    margin: 0 0 8px;
+    color: var(--ud-navy);
+    font-size: 19px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.note-card p {
+    margin: 0;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.note-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 20px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+
+.note-card-actions button {
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ud-blue);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.note-card-actions button:hover {
+    background: #eaf2fa;
+}
+
+.notes-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    border: 2px dashed #cbd7e5;
+    border-radius: 12px;
+    color: var(--muted);
+    text-align: center;
+}
+
+.notes-empty-icon {
+    display: grid;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    border-radius: 16px;
+    background: #e6eff9;
+    color: var(--ud-blue);
+    font-size: 35px;
+}
+
+.notes-empty-state h2 {
+    margin: 14px 0 4px;
+    color: var(--ud-navy);
+    font-size: 21px;
+}
+
+.notes-empty-state p {
+    margin: 0;
+}
+
 button:focus-visible,
 a:focus-visible,
 select:focus-visible,
 input:focus-visible {
+    outline: 3px solid var(--ud-gold-deep);
+    outline-offset: 2px;
+}
+
+textarea:focus-visible {
     outline: 3px solid var(--ud-gold-deep);
     outline-offset: 2px;
 }
