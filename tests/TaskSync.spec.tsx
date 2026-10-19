@@ -19,7 +19,7 @@ test("home shows today's scheduled tasks and shares changes with Task View", asy
             screen.queryByText("Midterm grades due for all classes"),
         ).not.toBeInTheDocument();
         await user.click(screen.getByRole("checkbox", { name: original }));
-        await user.click(screen.getByRole("button", { name: "Task View" }));
+        await user.click(screen.getByRole("link", { name: "Task View" }));
         expect(screen.getByRole("checkbox", { name: original })).toBeChecked();
         await user.type(
             screen.getByLabelText("Task"),
@@ -27,15 +27,15 @@ test("home shows today's scheduled tasks and shares changes with Task View", asy
         );
         await user.type(screen.getByLabelText("Date"), "2026-10-16");
         await user.click(screen.getByRole("button", { name: "Add task" }));
-        await user.click(screen.getByRole("button", { name: "Home" }));
+        await user.click(screen.getByRole("link", { name: "Home" }));
         expect(screen.getByText("Prepare today's lecture")).toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Task View" }));
+        await user.click(screen.getByRole("link", { name: "Task View" }));
         await user.click(
             screen.getByRole("button", {
                 name: "Delete Prepare today's lecture",
             }),
         );
-        await user.click(screen.getByRole("button", { name: "Home" }));
+        await user.click(screen.getByRole("link", { name: "Home" }));
         expect(
             screen.queryByText("Prepare today's lecture"),
         ).not.toBeInTheDocument();

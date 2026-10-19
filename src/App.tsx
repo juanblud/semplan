@@ -19,13 +19,6 @@ interface NavigationItem {
 }
 
 const navigation: NavigationItem[] = [
-<<<<<<< HEAD
-    { id: "home", label: "Home", icon: "🏠" },
-    { id: "courses", label: "Courses", icon: "📖" },
-    { id: "calendar", label: "Calendar", icon: "📅" },
-    { id: "planning-notes", label: "Planning Notes", icon: "✏️" },
-    { id: "tasks", label: "Task View", icon: "📋" },
-=======
     { id: "home", label: "Home", icon: "🏠", path: "Home" },
     { id: "courses", label: "Courses", icon: "📋", path: "Courses" },
     { id: "calendar", label: "Calendar", icon: "📅", path: "Calendar" },
@@ -35,7 +28,7 @@ const navigation: NavigationItem[] = [
         icon: "✏️",
         path: "Planning-Notes",
     },
->>>>>>> 3dc5e425da8969e7208d372de3e72360ef3f97b8
+    { id: "tasks", label: "Task View", icon: "📋", path: "Task-View" },
 ];
 
 // Vite serves the site from "/" locally and "/<repo>/" on GitHub Pages.
@@ -90,7 +83,7 @@ export function App() {
     }
 
     function navigateTo(nextPage: Page) {
-        setPage(nextPage);
+        navigate(nextPage);
         setCollapsed(nextPage !== "home");
     }
 
@@ -118,7 +111,10 @@ export function App() {
                             aria-label={item.label}
                             aria-current={page === item.id ? "page" : undefined}
                             title={collapsed ? item.label : undefined}
-                            onClick={() => navigateTo(item.id)}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                navigateTo(item.id);
+                            }}
                         >
                             <span className="nav-icon" aria-hidden="true">
                                 {item.icon}
