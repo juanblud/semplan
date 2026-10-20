@@ -4,6 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { App } from "../src/App";
 
 describe("App", () => {
+    beforeAll(() => {
+        HTMLDialogElement.prototype.showModal = function () {
+            this.setAttribute("open", "");
+        };
+        HTMLDialogElement.prototype.close = function () {
+            this.removeAttribute("open");
+        };
+    });
     beforeEach(() => {
         window.history.replaceState(null, "", "/");
         localStorage.clear();
@@ -97,6 +105,40 @@ describe("App", () => {
             screen.getAllByRole("button", { name: "Open Course Plan" })[0],
         );
         expect(window.location.pathname).toBe("/Courses");
+    });
+
+    test("saves course edits before opening the Calendar page", async () => {
+        const user = userEvent.setup();
+        window.history.replaceState(null, "", "/Courses");
+        render(<App />);
+
+        await user.click(screen.getByRole("button", { name: "Create Course" }));
+        fireEvent.change(screen.getByLabelText("Course code *"), {
+            target: { value: "MATH 241" },
+        });
+        fireEvent.change(screen.getByLabelText("Course name *"), {
+            target: { value: "Calculus" },
+        });
+        await user.click(screen.getByRole("button", { name: "Save course" }));
+
+        await user.click(screen.getByRole("button", { name: "Edit MATH 241" }));
+        fireEvent.change(screen.getByLabelText("Meets"), {
+            target: { value: "Tue / Thu 9:00 - 10:15 AM" },
+        });
+        await user.click(
+            screen.getByRole("button", { name: "Plan in Calender View" }),
+        );
+
+        expect(window.location.pathname).toBe("/Calendar");
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "CISC 275",
+        );
+        expect(screen.getByRole("combobox", { name: "Semester" })).toHaveValue(
+            "Fall 2026",
+        );
+        expect(localStorage.getItem("semester-planner-courses-v1")).toContain(
+            "Tue / Thu 9:00 - 10:15 AM",
+        );
     });
 
     test("renders the sidebar and home layout", () => {
