@@ -12,10 +12,27 @@
     --canvas: #f3f6fa;
 }
 
+/* One shared backdrop for every page: a light blue wash with soft blue and
+   gold glows. It stays put while content scrolls, so the white cards read as
+   floating above it. The sidebar is opaque and covers the left edge. Layers
+   are listed top first. */
 .app-shell {
     display: flex;
     min-height: 100vh;
-    background: var(--canvas);
+    background-color: var(--canvas);
+    background-image:
+        radial-gradient(
+            ellipse 55% 45% at 100% 0%,
+            rgb(0 83 159 / 16%),
+            transparent 70%
+        ),
+        radial-gradient(
+            ellipse 45% 40% at 35% 100%,
+            rgb(255 210 0 / 16%),
+            transparent 70%
+        ),
+        linear-gradient(170deg, rgb(0 83 159 / 13%), rgb(0 83 159 / 8%));
+    background-attachment: fixed;
 }
 
 /* ---------- Sidebar ---------- */
@@ -190,10 +207,26 @@
 /* ---------- Main ---------- */
 
 .main-content {
+    position: relative;
+    /* Keeps the hen pattern's negative z-index inside the main area. */
+    isolation: isolate;
     flex: 1;
     min-width: 0;
     padding: 28px 32px 60px;
     color: var(--ink);
+}
+
+/* Faint scattered Blue Hens behind every page. The tile holds two staggered
+   hens drawn at 2x, so it is shown at half size. Raise the opacity to make
+   them stronger. */
+.main-content::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: url("./assets/blue-hen-pattern.png") 0 0 / 220px 180px repeat;
+    content: "";
+    opacity: 0.08;
+    pointer-events: none;
 }
 
 .home-header,
