@@ -208,7 +208,7 @@
 
 .main-content {
     position: relative;
-    /* Keeps the hen pattern's negative z-index inside the main area. */
+    /* Keeps the background pattern's negative z-index inside the main area. */
     isolation: isolate;
     flex: 1;
     min-width: 0;
@@ -217,13 +217,13 @@
 }
 
 /* Faint scattered Blue Hens behind every page. The tile holds two staggered
-   hens drawn at 2x, so it is shown at half size. Raise the opacity to make
-   them stronger. */
+   hens drawn at 2x, so it is shown at half size. A bigger size spreads them
+   further apart; raise the opacity to make them stronger. */
 .main-content::before {
     position: absolute;
     z-index: -1;
     inset: 0;
-    background: url("./assets/blue-hen-pattern.png") 0 0 / 220px 180px repeat;
+    background: url("./assets/background-pattern.png") 0 0 / 380px 300px repeat;
     content: "";
     opacity: 0.08;
     pointer-events: none;
