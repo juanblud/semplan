@@ -141,7 +141,7 @@ export function App() {
                         onOpenCourse={() => navigateTo("courses")}
                     />
                 : page === "courses" ?
-                    <CoursesPage />
+                    <CoursesPage tasks={tasks} />
                 : page === "calendar" ?
                     <CalendarPage />
                 : page === "planning-notes" ?
