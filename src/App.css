@@ -234,6 +234,10 @@
     box-shadow: 0 1px 3px rgb(0 42 82 / 8%);
 }
 
+.home-course-toolbar {
+    grid-template-columns: minmax(190px, 1fr) minmax(280px, 1.6fr);
+}
+
 .course-toolbar label {
     display: flex;
     flex-direction: column;
@@ -475,6 +479,7 @@ input:focus-visible {
     padding: 28px;
     border-radius: 10px;
     background: var(--ud-blue-dark);
+    color: #fff;
 }
 
 .task-form {
@@ -483,6 +488,10 @@ input:focus-visible {
     align-items: end;
     gap: 14px;
     margin-bottom: 30px;
+}
+
+.task-form.is-editing {
+    grid-template-columns: 1.5fr 1fr 0.8fr 1.1fr;
 }
 
 .task-form label {
@@ -606,7 +615,8 @@ input:focus-visible {
 }
 
 @media (max-width: 900px) {
-    .task-form {
+    .task-form,
+    .task-form.is-editing {
         grid-template-columns: 1fr 1fr;
     }
 

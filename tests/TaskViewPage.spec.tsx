@@ -55,3 +55,28 @@ test("cancels edits and deletes the task being edited", async () => {
     expect(screen.getByLabelText("Task")).toHaveValue("");
     expect(screen.getAllByRole("checkbox")).toHaveLength(2);
 });
+
+test("moves tasks between active and completed sections", async () => {
+    const user = userEvent.setup();
+    render(<TaskViewHarness />);
+    const title = initialTasks[0].title;
+    const active = screen.getByRole("region", { name: "Active Tasks" });
+    const completed = screen.getByRole("region", { name: "Completed Tasks" });
+    expect(
+        within(completed).getByText("No completed tasks yet."),
+    ).toBeInTheDocument();
+    await user.click(within(active).getByRole("checkbox", { name: title }));
+    expect(
+        within(active).queryByRole("checkbox", { name: title }),
+    ).not.toBeInTheDocument();
+    expect(
+        within(completed).getByRole("checkbox", { name: title }),
+    ).toBeChecked();
+    await user.click(within(completed).getByRole("checkbox", { name: title }));
+    expect(
+        within(active).getByRole("checkbox", { name: title }),
+    ).not.toBeChecked();
+    expect(
+        within(completed).getByText("No completed tasks yet."),
+    ).toBeInTheDocument();
+});

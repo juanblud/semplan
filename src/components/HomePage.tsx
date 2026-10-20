@@ -54,7 +54,10 @@ export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
                 <p>Your favorite place to plan as an Instructor!</p>
             </header>
 
-            <section className="course-toolbar" aria-label="Course controls">
+            <section
+                className="course-toolbar home-course-toolbar"
+                aria-label="Course controls"
+            >
                 <label className="semester-field">
                     <span>Semester</span>
                     <select
@@ -74,14 +77,6 @@ export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
                         onChange={(event) => setSearch(event.target.value)}
                     />
                 </label>
-                <button
-                    className="create-course"
-                    type="button"
-                    disabled
-                    title="Course creation is coming soon"
-                >
-                    +&nbsp; Create Course
-                </button>
             </section>
 
             <section

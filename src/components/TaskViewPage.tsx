@@ -77,17 +77,20 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                         Editing task — update the fields below, then save.
                     </p>
                 )}
-                <form className="task-form" onSubmit={saveTask}>
-                    <button
-                        type="submit"
-                        className="task-add"
-                        aria-label={
-                            editingId !== null ? "Save task" : "Add task"
-                        }
-                        title={editingId !== null ? "Save task" : "Add task"}
-                    >
-                        {editingId !== null ? "✓" : "+"}
-                    </button>
+                <form
+                    className={`task-form${editingId !== null ? " is-editing" : ""}`}
+                    onSubmit={saveTask}
+                >
+                    {editingId === null && (
+                        <button
+                            type="submit"
+                            className="task-add"
+                            aria-label="Add task"
+                            title="Add task"
+                        >
+                            +
+                        </button>
+                    )}
                     <label>
                         Task
                         <input
@@ -142,81 +145,113 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                         No tasks scheduled. Add a task above to get started.
                     </p>
                 )}
-                <ul className="task-list" aria-label="Tasks">
-                    {tasks.map((task) => (
-                        <li
-                            key={task.id}
-                            className={`task-row${task.completed ? " is-complete" : ""}`}
+                {[false, true].map((completed) => (
+                    <section
+                        key={String(completed)}
+                        aria-label={
+                            completed ? "Completed Tasks" : "Active Tasks"
+                        }
+                    >
+                        <h2>
+                            {completed ? "Completed Tasks" : "Active Tasks"}
+                        </h2>
+                        {!tasks.some(
+                            (task) => task.completed === completed,
+                        ) && (
+                            <p>
+                                {completed ?
+                                    "No completed tasks yet."
+                                :   "No active tasks."}
+                            </p>
+                        )}
+                        <ul
+                            className="task-list"
+                            aria-label={completed ? "Completed tasks" : "Tasks"}
                         >
-                            <label className="task-title">
-                                <input
-                                    type="checkbox"
-                                    checked={task.completed}
-                                    onChange={() =>
-                                        setTasks((current) =>
-                                            current.map((item) =>
-                                                item.id === task.id ?
-                                                    {
-                                                        ...item,
-                                                        completed:
-                                                            !item.completed,
-                                                    }
-                                                :   item,
-                                            ),
-                                        )
-                                    }
-                                />
-                                <span>{task.title}</span>
-                            </label>
-                            <span>
-                                <span className="task-mobile-label">
-                                    Class:{" "}
-                                </span>
-                                {task.course}
-                            </span>
-                            <span>
-                                <span className="task-mobile-label">
-                                    Section:{" "}
-                                </span>
-                                {task.section}
-                            </span>
-                            <time dateTime={task.date}>
-                                <span className="task-mobile-label">
-                                    Date:{" "}
-                                </span>
-                                {task.date
-                                    .split("-")
-                                    .slice(1)
-                                    .concat(task.date.split("-")[0])
-                                    .join("/")}
-                            </time>
-                            <div className="task-actions">
-                                <button
-                                    type="button"
-                                    aria-label={`Edit ${task.title}`}
-                                    onClick={() => editTask(task)}
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    type="button"
-                                    className="task-delete"
-                                    aria-label={`Delete ${task.title}`}
-                                    onClick={() => {
-                                        setTasks((current) =>
-                                            current.filter(
-                                                (item) => item.id !== task.id,
-                                            ),
-                                        );
-                                        if (editingId === task.id) resetForm();
-                                    }}
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                            {tasks
+                                .filter((task) => task.completed === completed)
+                                .map((task) => (
+                                    <li
+                                        key={task.id}
+                                        className={`task-row${task.completed ? " is-complete" : ""}`}
+                                    >
+                                        <label className="task-title">
+                                            <input
+                                                type="checkbox"
+                                                checked={task.completed}
+                                                onChange={() =>
+                                                    setTasks((current) =>
+                                                        current.map((item) =>
+                                                            (
+                                                                item.id ===
+                                                                task.id
+                                                            ) ?
+                                                                {
+                                                                    ...item,
+                                                                    completed:
+                                                                        !item.completed,
+                                                                }
+                                                            :   item,
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                            <span>{task.title}</span>
+                                        </label>
+                                        <span>
+                                            <span className="task-mobile-label">
+                                                Class:{" "}
+                                            </span>
+                                            {task.course}
+                                        </span>
+                                        <span>
+                                            <span className="task-mobile-label">
+                                                Section:{" "}
+                                            </span>
+                                            {task.section}
+                                        </span>
+                                        <time dateTime={task.date}>
+                                            <span className="task-mobile-label">
+                                                Date:{" "}
+                                            </span>
+                                            {task.date
+                                                .split("-")
+                                                .slice(1)
+                                                .concat(task.date.split("-")[0])
+                                                .join("/")}
+                                        </time>
+                                        <div className="task-actions">
+                                            <button
+                                                type="button"
+                                                aria-label={`Edit ${task.title}`}
+                                                onClick={() => editTask(task)}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="task-delete"
+                                                aria-label={`Delete ${task.title}`}
+                                                onClick={() => {
+                                                    setTasks((current) =>
+                                                        current.filter(
+                                                            (item) =>
+                                                                item.id !==
+                                                                task.id,
+                                                        ),
+                                                    );
+                                                    if (editingId === task.id)
+                                                        resetForm();
+                                                }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                        </ul>
+                    </section>
+                ))}
             </div>
         </section>
     );
