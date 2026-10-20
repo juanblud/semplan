@@ -92,7 +92,7 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                         </button>
                     )}
                     <label>
-                        Task Description
+                        Task
                         <input
                             ref={titleInput}
                             required

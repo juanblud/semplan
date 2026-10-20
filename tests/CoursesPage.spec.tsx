@@ -30,7 +30,9 @@ test("creates, edits, persists, and deletes a course", () => {
         screen.getByRole("heading", { name: "MATH 241" }),
     ).toBeInTheDocument();
     expect(screen.getByText("010")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Edit MATH 241" }));
+    fireEvent.click(
+        screen.getByRole("button", { name: "Edit MATH 241 - Section 010" }),
+    );
     fireEvent.change(screen.getByLabelText("Location"), {
         target: { value: "Gore 103" },
     });
@@ -39,7 +41,9 @@ test("creates, edits, persists, and deletes a course", () => {
     render(<CoursesPage />);
     expect(screen.getByText("Gore 103")).toBeInTheDocument();
     expect(screen.getByText("010")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Delete MATH 241" }));
+    fireEvent.click(
+        screen.getByRole("button", { name: "Delete MATH 241 - Section 010" }),
+    );
     fireEvent.click(
         within(screen.getByRole("dialog")).getByRole("button", {
             name: "Delete course",
@@ -197,7 +201,7 @@ test("saves a course template and applies the saved snapshot to spring", () => {
     );
     expect(screen.getByLabelText("Semester")).toHaveValue("Spring 2027");
     expect(
-        screen.getByRole("heading", { name: "CISC 275" }),
+        screen.getByRole("heading", { name: "CISC 275", level: 2 }),
     ).toBeInTheDocument();
     const saved = JSON.parse(
         localStorage.getItem("semester-planner:calendar-items")!,
@@ -249,7 +253,7 @@ test("deletes a saved template without removing its course", () => {
         within(templates).getByText(/No saved templates yet/),
     ).toBeInTheDocument();
     expect(
-        screen.getByRole("heading", { name: "CISC 275" }),
+        screen.getByRole("heading", { name: "CISC 275", level: 2 }),
     ).toBeInTheDocument();
     expect(
         JSON.parse(
@@ -361,7 +365,7 @@ test("Add Course creates a spring course with the selected saved schedule", () =
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-        screen.getByRole("heading", { name: "CISC 275" }),
+        screen.getByRole("heading", { name: "CISC 275", level: 2 }),
     ).toBeInTheDocument();
     const items = JSON.parse(
         localStorage.getItem("semester-planner:calendar-items")!,
