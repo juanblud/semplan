@@ -1,16 +1,7 @@
-import {
-    semesters,
-    calendarCourses as courses,
-    ITEMS_KEY,
-    CANCELLED_KEY,
-    loadSaved,
-    loadCalendarItems,
-} from "./calendarStorage";
 import { useEffect, useRef, useState } from "react";
 import type { DragEvent, FormEvent } from "react";
 import { AddActivityDialog } from "./AddActivityDialog";
 import type { NewActivity } from "./AddActivityDialog";
-import type { CalendarItem } from "./scheduleTemplate";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
 import "./CalendarPage.css";
 import {
@@ -23,6 +14,29 @@ import {
     startOfMonth,
     toDateKey,
 } from "./calendarDates";
+
+interface Semester {
+    name: string;
+    start: string;
+    end: string;
+}
+
+interface Course {
+    code: string;
+    meetingDays: number[];
+}
+
+interface CalendarItem {
+    id: string;
+    course: string;
+    kind: "topic" | "activity";
+    title: string;
+    detail?: string;
+    // Topics without a date are listed under "Unscheduled topics".
+    date?: string;
+    // A topic attached to an activity is shown inside it, on its date.
+    activityId?: string;
+}
 
 interface GoogleCalendarEvent {
     id: string;
@@ -53,6 +67,101 @@ const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY as
 const GOOGLE_CALENDAR_ID =
     (import.meta.env.VITE_GOOGLE_CALENDAR_ID as string | undefined) ??
     "en.usa#holiday@group.v.calendar.google.com";
+
+const semesters: Semester[] = [
+    { name: "Fall 2026", start: "2026-09-01", end: "2026-12-14" },
+    { name: "Spring 2027", start: "2027-02-08", end: "2027-05-17" },
+];
+
+const courses: Course[] = [
+    { code: "CISC 275", meetingDays: [1, 3, 5] },
+    { code: "CISC 320", meetingDays: [2, 4] },
+];
+
+const initialItems: CalendarItem[] = [
+    {
+        id: "275-task-6",
+        course: "CISC 275",
+        kind: "activity",
+        title: "Task 6",
+        detail: "Due 11:59 PM",
+        date: "2026-10-11",
+    },
+    {
+        id: "275-immutability",
+        course: "CISC 275",
+        kind: "topic",
+        title: "Immutability",
+        date: "2026-10-12",
+    },
+    {
+        id: "275-array-methods",
+        course: "CISC 275",
+        kind: "topic",
+        title: "Higher Order Array Methods",
+        date: "2026-10-12",
+    },
+    {
+        id: "275-practice-test",
+        course: "CISC 275",
+        kind: "activity",
+        title: "Practice Test",
+        detail: "Due 2:45 PM",
+        date: "2026-10-16",
+    },
+    {
+        id: "275-react-intro",
+        course: "CISC 275",
+        kind: "topic",
+        title: "React Introduction",
+    },
+    {
+        id: "275-what-is-se",
+        course: "CISC 275",
+        kind: "topic",
+        title: "What is SE?",
+    },
+    { id: "275-forms", course: "CISC 275", kind: "topic", title: "Forms" },
+    {
+        id: "320-dynamic-programming",
+        course: "CISC 320",
+        kind: "topic",
+        title: "Dynamic Programming",
+        date: "2026-10-13",
+    },
+    {
+        id: "320-graph-search",
+        course: "CISC 320",
+        kind: "topic",
+        title: "Graph Search",
+    },
+    {
+        id: "320-greedy",
+        course: "CISC 320",
+        kind: "topic",
+        title: "Greedy Algorithms",
+    },
+];
+
+// Calendar data is saved in this browser so it survives a refresh.
+const ITEMS_KEY = "semester-planner:calendar-items";
+// Cancelled classes are stored as "COURSE|YYYY-MM-DD".
+const CANCELLED_KEY = "semester-planner:cancelled-classes";
+
+function loadSaved<T>(key: string, fallback: T[]): T[] {
+    try {
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            const parsed = JSON.parse(saved) as T[] | null;
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        }
+    } catch {
+        // Storage can be blocked or hold bad data; fall back to the defaults.
+    }
+    return fallback;
+}
 
 function save<T>(key: string, value: T[]) {
     try {
@@ -123,7 +232,9 @@ export function CalendarPage() {
     // The day the calendar is centred on: its month in the monthly view, its
     // week in the weekly view.
     const [focusDate, setFocusDate] = useState(() => new Date());
-    const [items, setItems] = useState<CalendarItem[]>(loadCalendarItems);
+    const [items, setItems] = useState<CalendarItem[]>(() =>
+        loadSaved(ITEMS_KEY, initialItems),
+    );
     const [cancelledClasses, setCancelledClasses] = useState<string[]>(() =>
         loadSaved<string>(CANCELLED_KEY, []),
     );
@@ -220,10 +331,7 @@ export function CalendarPage() {
         }
     }
 
-    const courseItems = items.filter(
-        (item) =>
-            item.course === course.code && item.semester === semester.name,
-    );
+    const courseItems = items.filter((item) => item.course === course.code);
     const unscheduledTopics = courseItems.filter(
         (item) => item.kind === "topic" && !item.date,
     );
@@ -333,7 +441,6 @@ export function CalendarPage() {
             {
                 id: createItemId("activity"),
                 course: course.code,
-                semester: semester.name,
                 kind: "activity",
                 title,
                 detail: `Due ${formatTime(time)}`,
@@ -356,7 +463,6 @@ export function CalendarPage() {
             {
                 id: createItemId("topic"),
                 course: course.code,
-                semester: semester.name,
                 kind: "topic",
                 title,
             },

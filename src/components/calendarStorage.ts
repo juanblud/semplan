@@ -15,6 +15,10 @@ export const calendarCourses: Course[] = [
     { code: "CISC 320", meetingDays: [2, 4] },
 ];
 
+export function courseKey(code: string, section = ""): string {
+    return section ? `${code} - Section ${section}` : code;
+}
+
 const initialItems: CalendarItem[] = [
     {
         id: "275-task-6",

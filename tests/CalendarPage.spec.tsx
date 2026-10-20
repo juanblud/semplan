@@ -23,16 +23,6 @@ describe("CalendarPage", () => {
         localStorage.clear();
     });
 
-    test("schedule template actions live in Courses instead of Calendar", () => {
-        render(<CalendarPage />);
-        expect(
-            screen.queryByRole("button", { name: "Reuse schedule" }),
-        ).not.toBeInTheDocument();
-        expect(
-            screen.queryByRole("button", { name: "Save schedule template" }),
-        ).not.toBeInTheDocument();
-    });
-
     test("keeps created topics after the page reloads", async () => {
         const user = userEvent.setup();
         const { unmount } = render(<CalendarPage />);

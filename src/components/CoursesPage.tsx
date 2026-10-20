@@ -10,13 +10,15 @@ import {
     semesters as calendarSemesters,
     CANCELLED_KEY,
     ITEMS_KEY,
+    courseKey,
 } from "./calendarStorage";
 import { copySchedule } from "./scheduleTemplate";
 import { ScheduleTemplateActions } from "./ScheduleTemplateActions";
 
-interface Course {
+export interface Course {
     id: string;
     code: string;
+    section: string;
     title: string;
     semester: string;
     instructor: string;
@@ -24,11 +26,18 @@ interface Course {
     location: string;
     color: string;
 }
+export interface CalendarCourseSelection {
+    code: string;
+    section?: string;
+    semester: string;
+    schedule: string;
+}
 const storageKey = "semester-planner-courses-v1";
 const initialCourses: Course[] = [
     {
         id: "cisc275",
         code: "CISC 275",
+        section: "",
         title: "Software Engineering",
         semester: "Fall 2026",
         instructor: "",
@@ -39,6 +48,7 @@ const initialCourses: Course[] = [
     {
         id: "cisc320",
         code: "CISC 320",
+        section: "",
         title: "Algorithms",
         semester: "Fall 2026",
         instructor: "",
@@ -47,7 +57,9 @@ const initialCourses: Course[] = [
         color: "#6e4799",
     },
 ];
-function loadCourses(): Course[] {
+// The calendar reads the same saved courses so sections remain separate there.
+// eslint-disable-next-line react-refresh/only-export-components
+export function loadCourses(): Course[] {
     try {
         const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null") as
             Course[] | null;
@@ -71,7 +83,11 @@ function loadCourses(): Course[] {
                     ),
             )
         )
-            return saved;
+            return saved.map((course) => ({
+                ...course,
+                section:
+                    typeof course.section === "string" ? course.section : "",
+            }));
     } catch {
         /* Fall back when saved data is invalid or unavailable. */
     }
@@ -81,14 +97,24 @@ function normalize(value: string) {
     return value.toLowerCase().replace(/\s/g, "");
 }
 
-export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
+export function CoursesPage({
+    tasks = [],
+    onPlanInCalendar,
+}: {
+    tasks?: Task[];
+    onPlanInCalendar?: (course: CalendarCourseSelection) => void;
+}) {
     const [courses, setCourses] = useState(loadCourses);
     const [semester, setSemester] = useState("Fall 2026");
     const [search, setSearch] = useState("");
     const [draft, setDraft] = useState<Course | null>(null);
-    const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+    const [savedTemplates, setSavedTemplates] = useState(() =>
+        loadSaved<SavedTemplate>(TEMPLATE_KEY, []),
+    );
     const [selectedTemplate, setSelectedTemplate] = useState("");
     const [deleting, setDeleting] = useState<Course | null>(null);
+    const [deletingTemplate, setDeletingTemplate] =
+        useState<SavedTemplate | null>(null);
     const [error, setError] = useState("");
     const [storageError, setStorageError] = useState("");
     const dialog = useRef<HTMLDialogElement>(null);
@@ -99,34 +125,96 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
             ...courses.map((course) => course.semester),
         ]),
     ).sort();
-    function updateCourses(update: (current: Course[]) => Course[]) {
+    function updateCourses(update: (current: Course[]) => Course[]): boolean {
         const next = update(courses);
         setCourses(next);
         try {
             localStorage.setItem(storageKey, JSON.stringify(next));
             setStorageError("");
+            return true;
         } catch {
             setStorageError(
                 "Courses could not be saved in this browser. Keep this page open to retain your changes.",
             );
+            return false;
         }
     }
     useEffect(() => {
-        if (draft || deleting) dialog.current?.showModal();
+        if (draft || deleting || deletingTemplate) dialog.current?.showModal();
         else if (dialog.current?.open) dialog.current.close();
-    }, [draft, deleting]);
+    }, [draft, deleting, deletingTemplate]);
     function closeDialog() {
         setDraft(null);
         setSelectedTemplate("");
         setDeleting(null);
+        setDeletingTemplate(null);
         setError("");
+    }
+    function deleteTemplate() {
+        if (!deletingTemplate) return;
+        const next = savedTemplates.filter(
+            (template) =>
+                normalize(template.course) !==
+                    normalize(deletingTemplate.course) ||
+                (template.section ?? "") !== (deletingTemplate.section ?? "") ||
+                template.semester.name !== deletingTemplate.semester.name,
+        );
+        try {
+            localStorage.setItem(TEMPLATE_KEY, JSON.stringify(next));
+            setSavedTemplates(next);
+            closeDialog();
+        } catch {
+            setError("The template could not be deleted from this browser.");
+        }
+    }
+    function openCreateCourse(templateIndex?: number) {
+        const templates = loadSaved<SavedTemplate>(TEMPLATE_KEY, []);
+        const template =
+            templateIndex === undefined ? undefined : templates[templateIndex];
+        const source =
+            template &&
+            courses.find(
+                (course) =>
+                    normalize(course.code) === normalize(template.course) &&
+                    course.section === (template.section ?? "") &&
+                    course.semester === template.semester.name,
+            );
+        setSavedTemplates(templates);
+        setSelectedTemplate(template ? String(templateIndex) : "");
+        setError("");
+        setDraft({
+            id: crypto.randomUUID(),
+            code: template?.course ?? "",
+            section:
+                template?.section ??
+                template?.details?.section ??
+                source?.section ??
+                "",
+            title: template?.details?.title ?? source?.title ?? "",
+            semester:
+                template && semester === template.semester.name ?
+                    (calendarSemesters.find(
+                        (term) => term.name !== template.semester.name,
+                    )?.name ?? semester)
+                :   semester,
+            instructor:
+                template?.details?.instructor ?? source?.instructor ?? "",
+            schedule: template?.details?.schedule ?? source?.schedule ?? "",
+            location: template?.details?.location ?? source?.location ?? "",
+            color: template?.details?.color ?? source?.color ?? "#00539f",
+        });
     }
     function saveCourse(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (!draft) return;
+        const planInCalendar =
+            (event.nativeEvent as SubmitEvent).submitter?.getAttribute(
+                "name",
+            ) === "planInCalendar";
         const cleaned = {
             ...draft,
             code: draft.code.trim(),
+            section: (draft.section || "").trim(),
             title: draft.title.trim(),
             semester: draft.semester.trim(),
             instructor: draft.instructor.trim(),
@@ -137,11 +225,24 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
             setError("Enter a course code, name, and semester.");
             return;
         }
+        if (cleaned.section && !/^\d{3}$/.test(cleaned.section)) {
+            setError("Section must be exactly three digits, such as 010.");
+            return;
+        }
+        if (
+            planInCalendar &&
+            !calendarSemesters.some((term) => term.name === cleaned.semester)
+        ) {
+            setError(
+                "Choose Fall 2026 or Spring 2027 to plan in Calendar View.",
+            );
+            return;
+        }
         if (cleaned.schedule) {
             const day = "(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)";
             const time = "(?:[1-9]|1[0-2]):[0-5][0-9]";
             const format = new RegExp(
-                `^${day}(?: / ${day}){0,2} ${time} - ${time} (?:AM|PM)$`,
+                `^${day}(?: / ${day}){0,2} ${time}(?: (?:AM|PM))? - ${time} (?:AM|PM)$`,
             );
             const days = cleaned.schedule.split(/ \d/)[0].split(" / ");
             if (
@@ -149,7 +250,7 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                 new Set(days).size !== days.length
             ) {
                 setError(
-                    "Enter Meets as Mon / Wed / Fri 1:50 - 2:45 PM. Use 1–3 different abbreviated days separated by /, valid 12-hour times, and uppercase AM or PM.",
+                    "Enter Meets as Mon / Wed / Fri 1:50 PM - 2:45 PM. Use 1–3 different abbreviated days separated by /, and put uppercase AM or PM after both 12-hour times.",
                 );
                 return;
             }
@@ -159,10 +260,13 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                 (course) =>
                     course.id !== cleaned.id &&
                     normalize(course.code) === normalize(cleaned.code) &&
+                    course.section === cleaned.section &&
                     normalize(course.semester) === normalize(cleaned.semester),
             )
         ) {
-            setError("That course code already exists in this semester.");
+            setError(
+                "That course code and section already exist in this semester.",
+            );
             return;
         }
         if (selectedTemplate !== "") {
@@ -180,8 +284,10 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
             if (
                 items.some(
                     (item) =>
-                        normalize(item.course) === normalize(cleaned.code) &&
-                        item.semester === target.name,
+                        normalize(item.course) ===
+                            normalize(
+                                courseKey(cleaned.code, cleaned.section),
+                            ) && item.semester === target.name,
                 )
             ) {
                 setError(
@@ -205,18 +311,23 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                         ...loadSaved<string>(CANCELLED_KEY, [])
                             .filter(
                                 (key) =>
-                                    key.startsWith(`${cleaned.code}|`) &&
+                                    key.startsWith(
+                                        `${courseKey(cleaned.code, cleaned.section)}|`,
+                                    ) &&
                                     key.split("|")[1] >= target.start &&
                                     key.split("|")[1] <= target.end,
                             )
                             .map(
                                 (key) =>
-                                    `${template.course}|${key.split("|")[1]}`,
+                                    `${courseKey(template.course, template.section)}|${key.split("|")[1]}`,
                             ),
                     ],
-                    template.course,
+                    courseKey(template.course, template.section),
                     (kind) => `${kind}-${crypto.randomUUID()}`,
-                ).map((item) => ({ ...item, course: cleaned.code }));
+                ).map((item) => ({
+                    ...item,
+                    course: courseKey(cleaned.code, cleaned.section),
+                }));
                 const next = [...courses, cleaned];
                 localStorage.setItem(storageKey, JSON.stringify(next));
                 try {
@@ -239,17 +350,19 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                 return;
             }
         } else {
-            updateCourses((current) =>
+            const saved = updateCourses((current) =>
                 current.some((course) => course.id === cleaned.id) ?
                     current.map((course) =>
                         course.id === cleaned.id ? cleaned : course,
                     )
                 :   [...current, cleaned],
             );
+            if (!saved) return;
         }
         setSemester(cleaned.semester);
         setSearch("");
         closeDialog();
+        if (planInCalendar) onPlanInCalendar?.(cleaned);
     }
     const visibleCourses = courses.filter(
         (course) =>
@@ -288,22 +401,7 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                 <button
                     className="create-course"
                     type="button"
-                    onClick={() => {
-                        setSelectedTemplate("");
-                        setSavedTemplates(
-                            loadSaved<SavedTemplate>(TEMPLATE_KEY, []),
-                        );
-                        setDraft({
-                            id: crypto.randomUUID(),
-                            code: "",
-                            title: "",
-                            semester,
-                            instructor: "",
-                            schedule: "",
-                            location: "",
-                            color: "#00539f",
-                        });
-                    }}
+                    onClick={() => openCreateCourse()}
                 >
                     Create Course
                 </button>
@@ -321,7 +419,18 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                             (task) =>
                                 !task.completed &&
                                 normalize(task.course) ===
-                                    normalize(course.code),
+                                    normalize(course.code) &&
+                                (course.section ?
+                                    task.section === course.section
+                                :   !courses.some(
+                                        (other) =>
+                                            other.id !== course.id &&
+                                            other.semester ===
+                                                course.semester &&
+                                            normalize(other.code) ===
+                                                normalize(course.code) &&
+                                            other.section === task.section,
+                                    )),
                         )
                         .sort((a, b) => a.date.localeCompare(b.date));
                     return (
@@ -333,6 +442,10 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                             <h2>{course.code}</h2>
                             <p className="course-name">{course.title}</p>
                             <dl className="course-facts">
+                                <div>
+                                    <dt>Section</dt>
+                                    <dd>{course.section || "Not added"}</dd>
+                                </div>
                                 <div>
                                     <dt>Instructor(s)</dt>
                                     <dd>{course.instructor || "Not added"}</dd>
@@ -361,21 +474,31 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                 </p>
                             </div>
                             <ScheduleTemplateActions
-                                key={`${course.code}-${course.semester}`}
+                                key={`${courseKey(course.code, course.section)}-${course.semester}`}
                                 code={course.code}
+                                section={course.section}
                                 details={{
                                     title: course.title,
+                                    section: course.section,
                                     instructor: course.instructor,
                                     schedule: course.schedule,
                                     location: course.location,
                                     color: course.color,
                                 }}
                                 semester={course.semester}
+                                onSaved={() =>
+                                    setSavedTemplates(
+                                        loadSaved<SavedTemplate>(
+                                            TEMPLATE_KEY,
+                                            [],
+                                        ),
+                                    )
+                                }
                             />
                             <div className="course-actions">
                                 <button
                                     type="button"
-                                    aria-label={`Edit ${course.code}`}
+                                    aria-label={`Edit ${courseKey(course.code, course.section)}`}
                                     onClick={() => setDraft({ ...course })}
                                 >
                                     Edit course
@@ -383,7 +506,7 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                 <button
                                     className="course-danger"
                                     type="button"
-                                    aria-label={`Delete ${course.code}`}
+                                    aria-label={`Delete ${courseKey(course.code, course.section)}`}
                                     onClick={() => setDeleting(course)}
                                 >
                                     Delete
@@ -401,6 +524,62 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                     }
                 </p>
             )}
+            <section
+                className="saved-templates-section"
+                aria-labelledby="saved-templates-title"
+            >
+                <h2 id="saved-templates-title">Saved course templates</h2>
+                {savedTemplates.length === 0 ?
+                    <p className="saved-templates-empty">
+                        No saved templates yet. Save a schedule template from a
+                        course card to see it here.
+                    </p>
+                :   <ul className="saved-template-list">
+                        {savedTemplates.map((template, index) => (
+                            <li
+                                className="saved-template-card"
+                                key={`${courseKey(template.course, template.section)}-${template.semester.name}`}
+                            >
+                                <h3>
+                                    {courseKey(
+                                        template.course,
+                                        template.section,
+                                    )}
+                                </h3>
+                                {template.details?.title && (
+                                    <p>{template.details.title}</p>
+                                )}
+                                <p>From {template.semester.name}</p>
+                                <p>
+                                    {template.items.length} planned{" "}
+                                    {template.items.length === 1 ?
+                                        "item"
+                                    :   "items"}
+                                </p>
+                                <div className="saved-template-actions">
+                                    <button
+                                        type="button"
+                                        aria-label={`Create course from ${courseKey(template.course, template.section)} ${template.semester.name} template`}
+                                        onClick={() => openCreateCourse(index)}
+                                    >
+                                        Create course from template
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="course-danger"
+                                        aria-label={`Delete ${courseKey(template.course, template.section)} ${template.semester.name} template`}
+                                        onClick={() =>
+                                            setDeletingTemplate(template)
+                                        }
+                                    >
+                                        Delete template
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                }
+            </section>
             <dialog
                 ref={dialog}
                 className="course-dialog"
@@ -439,6 +618,9 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                                             normalize(
                                                                 template.course,
                                                             ) &&
+                                                        course.section ===
+                                                            (template.section ??
+                                                                "") &&
                                                         course.semester ===
                                                             template.semester
                                                                 .name,
@@ -449,6 +631,8 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                                         (source ?
                                                             {
                                                                 title: source.title,
+                                                                section:
+                                                                    source.section,
                                                                 instructor:
                                                                     source.instructor,
                                                                 schedule:
@@ -459,6 +643,12 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                                             }
                                                         :   {})),
                                                     code: template.course,
+                                                    section:
+                                                        template.section ??
+                                                        template.details
+                                                            ?.section ??
+                                                        source?.section ??
+                                                        "",
                                                 });
                                             }
                                         }}
@@ -469,11 +659,14 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                         {savedTemplates.map(
                                             (template, index) => (
                                                 <option
-                                                    key={`${template.course}-${template.semester.name}`}
+                                                    key={`${courseKey(template.course, template.section)}-${template.semester.name}`}
                                                     value={String(index)}
                                                 >
-                                                    {template.course} -{" "}
-                                                    {template.semester.name}
+                                                    {courseKey(
+                                                        template.course,
+                                                        template.section,
+                                                    )}{" "}
+                                                    - {template.semester.name}
                                                 </option>
                                             ),
                                         )}
@@ -505,7 +698,7 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                     [
                                         "schedule",
                                         "Meets",
-                                        "Mon / Wed / Fri 1:50 - 2:45 PM",
+                                        "Mon / Wed / Fri 1:50 PM - 2:45 PM",
                                     ],
                                     ["location", "Location", "Gore Hall 103"],
                                 ] as const
@@ -539,24 +732,44 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                                 "meeting-format-help"
                                             :   undefined
                                         }
-                                        onChange={(event) =>
+                                        onChange={(event) => {
                                             setDraft({
                                                 ...draft,
                                                 [key]: event.target.value,
-                                            })
-                                        }
+                                            });
+                                            if (key === "schedule")
+                                                setError("");
+                                        }}
                                     />
                                     {key === "schedule" && (
                                         <span id="meeting-format-help">
-                                            Example: Mon / Wed / Fri 1:50 - 2:45
-                                            PM. Use 1–3 different days: Mon,
-                                            Tue, Wed, Thu, Fri, Sat, Sun.
+                                            Example: Mon / Wed / Fri 1:50 PM -
+                                            2:45 PM. Use 1–3 different days:
+                                            Mon, Tue, Wed, Thu, Fri, Sat, Sun.
                                             Separate days with “ / ” and times
-                                            with “ - ”.
+                                            with “ - ”. Use uppercase AM or PM
+                                            after each time.
                                         </span>
                                     )}
                                 </label>
                             ))}
+                            <label>
+                                Section
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={3}
+                                    placeholder="010"
+                                    value={draft.section || ""}
+                                    onChange={(event) => {
+                                        setDraft({
+                                            ...draft,
+                                            section: event.target.value,
+                                        });
+                                        setError("");
+                                    }}
+                                />
+                            </label>
                             <label>
                                 Course color
                                 <input
@@ -580,6 +793,17 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                             <button type="button" onClick={closeDialog}>
                                 Cancel
                             </button>
+                            {courses.some(
+                                (course) => course.id === draft.id,
+                            ) && (
+                                <button
+                                    type="submit"
+                                    name="planInCalendar"
+                                    value="true"
+                                >
+                                    Plan in Calender View
+                                </button>
+                            )}
                             <button type="submit" className="course-primary">
                                 Save course
                             </button>
@@ -589,7 +813,7 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                 {deleting && (
                     <>
                         <h2 id="course-dialog-title">
-                            Delete {deleting.code}?
+                            Delete {courseKey(deleting.code, deleting.section)}?
                         </h2>
                         <p>
                             This removes {deleting.title} from your courses.
@@ -617,6 +841,33 @@ export function CoursesPage({ tasks = [] }: { tasks?: Task[] }) {
                                 }}
                             >
                                 Delete course
+                            </button>
+                        </div>
+                    </>
+                )}
+                {deletingTemplate && (
+                    <>
+                        <h2 id="course-dialog-title">Delete template?</h2>
+                        <p>
+                            Delete the saved{" "}
+                            {courseKey(
+                                deletingTemplate.course,
+                                deletingTemplate.section,
+                            )}{" "}
+                            template from {deletingTemplate.semester.name}?
+                            Existing courses and calendar items will remain.
+                        </p>
+                        {error && <p role="alert">{error}</p>}
+                        <div className="course-dialog-actions">
+                            <button type="button" onClick={closeDialog}>
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="course-danger"
+                                onClick={deleteTemplate}
+                            >
+                                Delete template
                             </button>
                         </div>
                     </>
