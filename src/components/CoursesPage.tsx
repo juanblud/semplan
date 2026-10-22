@@ -57,6 +57,9 @@ const initialCourses: Course[] = [
         color: "#6e4799",
     },
 ];
+function normalize(value: string) {
+    return value.toLowerCase().replace(/\s/g, "");
+}
 // The calendar reads the same saved courses so sections remain separate there.
 // eslint-disable-next-line react-refresh/only-export-components
 export function loadCourses(): Course[] {
@@ -82,21 +85,38 @@ export function loadCourses(): Course[] {
                             typeof course[key as keyof Course] === "string",
                     ),
             )
-        )
-            return saved.map((course) => ({
+        ) {
+            const courses = saved.map((course) => ({
                 ...course,
                 section:
                     typeof course.section === "string" ? course.section : "",
+                instructor:
+                    (
+                        normalize(course.code) === "cisc275" &&
+                        course.instructor.trim() === "Cory Bart"
+                    ) ?
+                        "Austin Cory Bart"
+                    :   course.instructor,
             }));
+            if (
+                courses.some(
+                    (course, index) =>
+                        course.instructor !== saved[index].instructor,
+                )
+            ) {
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(courses));
+                } catch {
+                    // Keep the corrected name visible if storage is unavailable.
+                }
+            }
+            return courses;
+        }
     } catch {
         /* Fall back when saved data is invalid or unavailable. */
     }
     return initialCourses;
 }
-function normalize(value: string) {
-    return value.toLowerCase().replace(/\s/g, "");
-}
-
 export function CoursesPage({
     tasks = [],
     onPlanInCalendar,
@@ -816,8 +836,9 @@ export function CoursesPage({
                             Delete {courseKey(deleting.code, deleting.section)}?
                         </h2>
                         <p>
-                            This removes {deleting.title} from your courses.
-                            Existing tasks and calendar events will remain.
+                            This removes {deleting.title} from your courses and
+                            the calendar's course list. Existing tasks and
+                            calendar events will remain saved.
                         </p>
                         <div className="course-dialog-actions">
                             <button
