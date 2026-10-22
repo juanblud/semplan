@@ -50,7 +50,7 @@ export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
     return (
         <>
             <header className="home-header">
-                <h1>Semester Planning Tool</h1>
+                <h1>ProfPlan</h1>
                 <p>Your favorite place to plan as an Instructor!</p>
             </header>
 
