@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import profPlanLogo from "./assets/prof-plan-logo.png";
 import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
@@ -91,6 +92,15 @@ export function App() {
         <div className={`app-shell${collapsed ? " is-collapsed" : ""}`}>
             <aside className="sidebar" aria-label="Sidebar">
                 <div className="sidebar-top">
+                    {!collapsed && (
+                        <div className="brand">
+                            <img
+                                className="brand-logo"
+                                src={profPlanLogo}
+                                alt="ProfPlan"
+                            />
+                        </div>
+                    )}
                     <button
                         className="sidebar-toggle"
                         type="button"
