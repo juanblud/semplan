@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Task } from "../tasks";
 
 interface Course {
     code: string;
@@ -7,6 +8,8 @@ interface Course {
 }
 
 interface HomePageProps {
+    tasks: Task[];
+    onToggleTask: (id: number) => void;
     onOpenCourse: () => void;
 }
 
@@ -19,10 +22,21 @@ function normalizeSearchText(value: string): string {
     return value.toLowerCase().replace(/\s+/g, "");
 }
 
-export function HomePage({ onOpenCourse }: HomePageProps) {
+export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
     const [search, setSearch] = useState("");
     const [semester, setSemester] = useState("Fall 2026");
-    const [checkedTasks, setCheckedTasks] = useState<number[]>([]);
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const nextDay = new Date(now);
+        nextDay.setHours(24, 0, 0, 0);
+        const timer = window.setTimeout(
+            () => setNow(new Date()),
+            Math.max(0, nextDay.getTime() - Date.now()),
+        );
+        return () => window.clearTimeout(timer);
+    }, [now]);
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const todayTasks = tasks.filter((task) => task.date === today);
 
     const normalizedSearch = normalizeSearchText(search);
     const visibleCourses = exampleCourses.filter(
@@ -33,22 +47,17 @@ export function HomePage({ onOpenCourse }: HomePageProps) {
             ),
     );
 
-    function toggleTask(index: number) {
-        setCheckedTasks((tasks) =>
-            tasks.includes(index) ?
-                tasks.filter((task) => task !== index)
-            :   [...tasks, index],
-        );
-    }
-
     return (
         <>
             <header className="home-header">
-                <h1>ProfPlan</h1>
+                <h1>Semester Planning Tool</h1>
                 <p>Your favorite place to plan as an Instructor!</p>
             </header>
 
-            <section className="course-toolbar" aria-label="Course controls">
+            <section
+                className="course-toolbar home-course-toolbar"
+                aria-label="Course controls"
+            >
                 <label className="semester-field">
                     <span>Semester</span>
                     <select
@@ -68,14 +77,6 @@ export function HomePage({ onOpenCourse }: HomePageProps) {
                         onChange={(event) => setSearch(event.target.value)}
                     />
                 </label>
-                <button
-                    className="create-course"
-                    type="button"
-                    disabled
-                    title="Course creation is coming soon"
-                >
-                    +&nbsp; Create Course
-                </button>
             </section>
 
             <section
@@ -103,43 +104,45 @@ export function HomePage({ onOpenCourse }: HomePageProps) {
             </section>
 
             <section className="todo-section" aria-labelledby="todo-title">
-                <h2 id="todo-title">Today&apos;s To Do List: 10/14/2026</h2>
+                <h2 id="todo-title">
+                    Today&apos;s tasks:{" "}
+                    <time dateTime={today}>
+                        {now.toLocaleDateString("en-US")}
+                    </time>
+                </h2>
                 <div className="todo-table-wrap">
                     <table className="todo-table">
                         <thead>
                             <tr>
                                 <th scope="col">Course</th>
-                                <th scope="col">To Do</th>
+                                <th scope="col">Task</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <th scope="row">CISC 275</th>
-                                <td>
-                                    {[
-                                        "Final task due today",
-                                        "Issue practice test",
-                                        "Finish grading the first practice test for feedback purposes",
-                                    ].map((task, index) => (
-                                        <label className="todo-item" key={task}>
+                            {todayTasks.map((task) => (
+                                <tr key={task.id}>
+                                    <th scope="row">{task.course}</th>
+                                    <td>
+                                        <label className="todo-item">
                                             <input
                                                 type="checkbox"
-                                                checked={checkedTasks.includes(
-                                                    index,
-                                                )}
+                                                checked={task.completed}
                                                 onChange={() =>
-                                                    toggleTask(index)
+                                                    onToggleTask(task.id)
                                                 }
                                             />
-                                            <span>{task}</span>
+                                            <span>{task.title}</span>
                                         </label>
-                                    ))}
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">CISC 320</th>
-                                <td>All up to Date!</td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            ))}
+                            {todayTasks.length === 0 && (
+                                <tr>
+                                    <td colSpan={2}>
+                                        No tasks scheduled for today.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

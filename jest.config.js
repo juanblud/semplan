@@ -17,6 +17,14 @@ export default {
                         react: {
                             runtime: "automatic",
                         },
+                        // Vite env vars are not available under Jest.
+                        optimizer: {
+                            globals: {
+                                vars: {
+                                    "import.meta.env": "{}",
+                                },
+                            },
+                        },
                     },
                 },
             },
