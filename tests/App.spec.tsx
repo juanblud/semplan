@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { App } from "../src/App";
@@ -49,6 +49,131 @@ describe("App", () => {
             "aria-current",
             "page",
         );
+    });
+
+    test("deleted courses stay removed from Calendar, including after all courses are deleted", async () => {
+        const user = userEvent.setup();
+        localStorage.setItem(
+            "semester-planner:cancelled-classes",
+            JSON.stringify(["CISC 275|2026-10-12"]),
+        );
+        const view = render(<App />);
+        await user.click(screen.getByRole("link", { name: "Calendar" }));
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "CISC 275",
+        );
+        const calendarItems = localStorage.getItem(
+            "semester-planner:calendar-items",
+        );
+        const cancelledClasses = localStorage.getItem(
+            "semester-planner:cancelled-classes",
+        );
+
+        await user.click(screen.getByRole("link", { name: "Courses" }));
+        await user.click(
+            screen.getByRole("button", { name: "Delete CISC 275" }),
+        );
+        await user.click(
+            within(screen.getByRole("dialog")).getByRole("button", {
+                name: "Delete course",
+            }),
+        );
+        await user.click(screen.getByRole("link", { name: "Calendar" }));
+
+        const courseSelect = screen.getByRole("combobox", { name: "Course" });
+        expect(
+            within(courseSelect).queryByRole("option", { name: "CISC 275" }),
+        ).not.toBeInTheDocument();
+        expect(courseSelect).toHaveValue("CISC 320");
+        expect(screen.queryByText("Forms")).not.toBeInTheDocument();
+        expect(screen.getByText("Graph Search")).toBeInTheDocument();
+
+        await user.click(screen.getByRole("link", { name: "Courses" }));
+        await user.click(
+            screen.getByRole("button", { name: "Delete CISC 320" }),
+        );
+        await user.click(
+            within(screen.getByRole("dialog")).getByRole("button", {
+                name: "Delete course",
+            }),
+        );
+        await user.click(screen.getByRole("link", { name: "Calendar" }));
+
+        expect(
+            screen.getByText(/No courses in this semester/),
+        ).toBeInTheDocument();
+        expect(screen.getByRole("combobox", { name: "Course" })).toBeDisabled();
+        expect(
+            screen.getByRole("button", { name: "+ Add Activity" }),
+        ).toBeDisabled();
+        expect(
+            screen.queryByRole("button", { name: "+ Create Topic" }),
+        ).not.toBeInTheDocument();
+
+        view.unmount();
+        render(<App />);
+        expect(
+            screen.getByText(/No courses in this semester/),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole("option", { name: /CISC/ }),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole("button", { name: /Class meeting on/ }),
+        ).not.toBeInTheDocument();
+        expect(localStorage.getItem("semester-planner:calendar-items")).toBe(
+            calendarItems,
+        );
+        expect(localStorage.getItem("semester-planner:cancelled-classes")).toBe(
+            cancelledClasses,
+        );
+    });
+
+    test("deleting one section preserves other sections and semesters in Calendar", async () => {
+        const user = userEvent.setup();
+        const course = {
+            id: "fall010",
+            code: "CISC 275",
+            section: "010",
+            title: "Software Engineering",
+            semester: "Fall 2026",
+            instructor: "Austin Cory Bart",
+            schedule: "Mon / Wed / Fri 1:50 PM - 2:45 PM",
+            location: "Colburn Lab 115",
+            color: "#00539f",
+        };
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([
+                course,
+                { ...course, id: "fall011", section: "011" },
+                { ...course, id: "spring010", semester: "Spring 2027" },
+            ]),
+        );
+        window.history.replaceState(null, "", "/Courses");
+        render(<App />);
+
+        await user.click(
+            screen.getByRole("button", {
+                name: "Delete CISC 275 - Section 010",
+            }),
+        );
+        await user.click(
+            within(screen.getByRole("dialog")).getByRole("button", {
+                name: "Delete course",
+            }),
+        );
+        await user.click(screen.getByRole("link", { name: "Calendar" }));
+        const courseSelect = screen.getByRole("combobox", { name: "Course" });
+        expect(courseSelect).toHaveValue("CISC 275 - Section 011");
+        expect(within(courseSelect).getAllByRole("option")).toHaveLength(1);
+
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Spring 2027",
+        );
+        expect(courseSelect).toHaveValue("CISC 275 - Section 010");
+        expect(within(courseSelect).getAllByRole("option")).toHaveLength(1);
     });
 
     test("opens Task View directly from its URL", () => {
@@ -139,6 +264,24 @@ describe("App", () => {
         expect(localStorage.getItem("semester-planner-courses-v1")).toContain(
             "Tue / Thu 9:00 - 10:15 AM",
         );
+        const semester = screen.getByRole("combobox", { name: "Semester" });
+        await user.selectOptions(semester, "Spring 2027");
+        await user.selectOptions(semester, "Fall 2026");
+        await user.click(screen.getByRole("button", { name: "Next month" }));
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Course" }),
+            "MATH 241",
+        );
+        expect(
+            within(
+                screen.getByRole("cell", { name: "Tuesday, October 13, 2026" }),
+            ).getByText("Class Meeting"),
+        ).toBeInTheDocument();
+        expect(
+            within(
+                screen.getByRole("cell", { name: "Monday, October 12, 2026" }),
+            ).queryByText("Class Meeting"),
+        ).not.toBeInTheDocument();
     });
 
     test("renders the sidebar and home layout", () => {

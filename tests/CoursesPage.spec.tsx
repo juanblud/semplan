@@ -1,6 +1,6 @@
 import type { CalendarItem } from "../src/components/scheduleTemplate";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { CoursesPage } from "../src/components/CoursesPage";
+import { CoursesPage, loadCourses } from "../src/components/CoursesPage";
 import { initialTasks } from "../src/tasks";
 
 beforeAll(() => {
@@ -12,6 +12,109 @@ beforeAll(() => {
     };
 });
 beforeEach(() => localStorage.clear());
+
+test("corrects the saved CISC 275 instructor without changing other course details", () => {
+    const courses = loadCourses().map((course) => ({
+        ...course,
+        instructor:
+            course.code === "CISC 275" ? "Cory Bart" : "Other Instructor",
+        location: "Colburn Lab 115",
+        schedule: "Mon / Wed / Fri 1:50 PM - 2:45 PM",
+    }));
+    localStorage.setItem(
+        "semester-planner-courses-v1",
+        JSON.stringify(courses),
+    );
+
+    const view = render(<CoursesPage />);
+
+    expect(screen.getByText("Austin Cory Bart")).toBeInTheDocument();
+    expect(screen.queryByText("Cory Bart")).not.toBeInTheDocument();
+    expect(screen.getByText("Other Instructor")).toBeInTheDocument();
+    expect(
+        JSON.parse(localStorage.getItem("semester-planner-courses-v1")!),
+    ).toEqual(
+        courses.map((course) => ({
+            ...course,
+            instructor:
+                course.code === "CISC 275" ?
+                    "Austin Cory Bart"
+                :   course.instructor,
+        })),
+    );
+
+    view.unmount();
+    const reloaded = render(<CoursesPage />);
+    expect(screen.getByText("Austin Cory Bart")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
+    expect(screen.getByLabelText("Instructor(s)")).toHaveValue(
+        "Austin Cory Bart",
+    );
+    fireEvent.change(screen.getByLabelText("Instructor(s)"), {
+        target: { value: "New Instructor" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save course" }));
+
+    reloaded.unmount();
+    render(<CoursesPage />);
+    expect(screen.getByText("New Instructor")).toBeInTheDocument();
+    expect(screen.queryByText("Austin Cory Bart")).not.toBeInTheDocument();
+});
+
+test.each(["cisc275", " CISC 275 "])(
+    "corrects the saved instructor for normalized course code %s",
+    (code) => {
+        const course = { ...loadCourses()[0], code, instructor: " Cory Bart " };
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([course]),
+        );
+
+        expect(loadCourses()).toEqual([
+            { ...course, instructor: "Austin Cory Bart" },
+        ]);
+    },
+);
+
+test.each([
+    ["CISC 275", "Austin Cory Bart"],
+    ["CISC 275", "Other Instructor"],
+    ["CISC 275", ""],
+    ["CISC 320", "Cory Bart"],
+])("preserves %s instructor value %j", (code, instructor) => {
+    const course = { ...loadCourses()[0], code, instructor };
+    const stored = JSON.stringify([course]);
+    localStorage.setItem("semester-planner-courses-v1", stored);
+
+    expect(loadCourses()).toEqual([course]);
+    expect(localStorage.getItem("semester-planner-courses-v1")).toBe(stored);
+});
+
+test("shows the corrected instructor even when browser storage cannot save it", () => {
+    const course = {
+        ...loadCourses()[0],
+        instructor: "Cory Bart",
+        location: "Colburn Lab 115",
+    };
+    const stored = JSON.stringify([course]);
+    localStorage.setItem("semester-planner-courses-v1", stored);
+    const storage = jest
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation(() => {
+            throw new Error("Storage full");
+        });
+    try {
+        render(<CoursesPage />);
+
+        expect(screen.getByText("Austin Cory Bart")).toBeInTheDocument();
+        expect(screen.getByText("Colburn Lab 115")).toBeInTheDocument();
+        expect(localStorage.getItem("semester-planner-courses-v1")).toBe(
+            stored,
+        );
+    } finally {
+        storage.mockRestore();
+    }
+});
 
 test("creates, edits, persists, and deletes a course", () => {
     const view = render(<CoursesPage />);

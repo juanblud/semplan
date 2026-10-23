@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { CalendarPage } from "../src/components/CalendarPage";
+import { loadCourses } from "../src/components/CoursesPage";
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -47,6 +48,302 @@ describe("CalendarPage", () => {
         expect(screen.getByText("Forms")).toBeInTheDocument();
     });
 
+    test.each(["not json", "{}"])(
+        "uses default courses when saved courses are invalid: %s",
+        (stored) => {
+            localStorage.setItem("semester-planner-courses-v1", stored);
+            render(<CalendarPage />);
+
+            const courseSelect = screen.getByRole("combobox", {
+                name: "Course",
+            });
+            expect(courseSelect).toHaveValue("CISC 275");
+            expect(
+                within(courseSelect).getByRole("option", { name: "CISC 320" }),
+            ).toBeInTheDocument();
+            expect(screen.getByText("Forms")).toBeInTheDocument();
+        },
+    );
+
+    test("assigns legacy items to their semester without discarding saved data", async () => {
+        const user = userEvent.setup();
+        const course = loadCourses()[0];
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([
+                course,
+                { ...course, id: "spring275", semester: "Spring 2027" },
+            ]),
+        );
+        localStorage.setItem(
+            "semester-planner:calendar-items",
+            JSON.stringify([
+                {
+                    id: "legacy-topic",
+                    course: "CISC 275",
+                    kind: "topic",
+                    title: "Legacy unscheduled topic",
+                },
+                {
+                    id: "legacy-spring",
+                    course: "CISC 275",
+                    kind: "activity",
+                    title: "Legacy spring activity",
+                    date: "2027-02-09",
+                },
+            ]),
+        );
+
+        render(<CalendarPage />);
+        expect(
+            screen.getByText("Legacy unscheduled topic"),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText("Legacy spring activity"),
+        ).not.toBeInTheDocument();
+
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Spring 2027",
+        );
+        expect(
+            screen.getByRole("group", { name: "Legacy spring activity" }),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText("Legacy unscheduled topic"),
+        ).not.toBeInTheDocument();
+        expect(
+            JSON.parse(
+                localStorage.getItem("semester-planner:calendar-items")!,
+            ),
+        ).toEqual([
+            {
+                id: "legacy-topic",
+                course: "CISC 275",
+                kind: "topic",
+                title: "Legacy unscheduled topic",
+                semester: "Fall 2026",
+            },
+            {
+                id: "legacy-spring",
+                course: "CISC 275",
+                kind: "activity",
+                title: "Legacy spring activity",
+                date: "2027-02-09",
+                semester: "Spring 2027",
+            },
+        ]);
+    });
+
+    test("isolates schedules and new topics by semester for the same course section", async () => {
+        const user = userEvent.setup();
+        const fallCourse = {
+            ...loadCourses()[0],
+            id: "fall010",
+            section: "010",
+            schedule: "Tue / Thu 9:00 - 10:15 AM",
+        };
+        const springCourse = {
+            ...fallCourse,
+            id: "spring010",
+            semester: "Spring 2027",
+        };
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([fallCourse, springCourse]),
+        );
+        localStorage.setItem(
+            "semester-planner:calendar-items",
+            JSON.stringify([
+                {
+                    id: "fall-topic",
+                    course: "CISC 275 - Section 010",
+                    semester: "Fall 2026",
+                    kind: "topic",
+                    title: "Fall topic",
+                },
+                {
+                    id: "spring-topic",
+                    course: "CISC 275 - Section 010",
+                    semester: "Spring 2027",
+                    kind: "topic",
+                    title: "Spring topic",
+                },
+            ]),
+        );
+
+        const view = render(<CalendarPage />);
+        await showOctober2026(user);
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "CISC 275 - Section 010",
+        );
+        expect(
+            screen.queryByRole("option", { name: "CISC 320" }),
+        ).not.toBeInTheDocument();
+        expect(
+            within(getDay("Tuesday, October 13, 2026")).getByText(
+                "Class Meeting",
+            ),
+        ).toBeInTheDocument();
+        expect(
+            within(getDay("Monday, October 12, 2026")).queryByText(
+                "Class Meeting",
+            ),
+        ).not.toBeInTheDocument();
+        expect(screen.getByText("Fall topic")).toBeInTheDocument();
+        expect(screen.queryByText("Spring topic")).not.toBeInTheDocument();
+
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Spring 2027",
+        );
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "CISC 275 - Section 010",
+        );
+        expect(screen.getByText("Spring topic")).toBeInTheDocument();
+        expect(screen.queryByText("Fall topic")).not.toBeInTheDocument();
+
+        await user.click(
+            screen.getByRole("button", { name: "+ Create Topic" }),
+        );
+        await user.type(
+            screen.getByRole("textbox", { name: "Topic name" }),
+            "New spring topic{Enter}",
+        );
+        expect(
+            JSON.parse(
+                localStorage.getItem("semester-planner:calendar-items")!,
+            ),
+        ).toContainEqual(
+            expect.objectContaining({
+                title: "New spring topic",
+                course: "CISC 275 - Section 010",
+                semester: "Spring 2027",
+            }),
+        );
+
+        view.unmount();
+        render(<CalendarPage />);
+        expect(screen.getByText("Fall topic")).toBeInTheDocument();
+        expect(screen.queryByText("New spring topic")).not.toBeInTheDocument();
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Spring 2027",
+        );
+        expect(screen.getByText("New spring topic")).toBeInTheDocument();
+    });
+
+    test("keeps topics and class meetings separate for sections of the same course", async () => {
+        const user = userEvent.setup();
+        const base = loadCourses()[0];
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([
+                {
+                    ...base,
+                    id: "section010",
+                    section: "010",
+                    schedule: "Mon / Wed / Fri 1:50 PM - 2:45 PM",
+                },
+                {
+                    ...base,
+                    id: "section011",
+                    section: "011",
+                    schedule: "Tue / Thu 9:00 AM - 10:15 AM",
+                },
+            ]),
+        );
+        localStorage.setItem(
+            "semester-planner:calendar-items",
+            JSON.stringify([
+                {
+                    id: "topic010",
+                    course: "CISC 275 - Section 010",
+                    semester: "Fall 2026",
+                    kind: "topic",
+                    title: "Section 010 topic",
+                },
+                {
+                    id: "topic011",
+                    course: "CISC 275 - Section 011",
+                    semester: "Fall 2026",
+                    kind: "topic",
+                    title: "Section 011 topic",
+                },
+            ]),
+        );
+
+        render(<CalendarPage />);
+        await showOctober2026(user);
+        const courseSelect = screen.getByRole("combobox", { name: "Course" });
+        expect(within(courseSelect).getAllByRole("option")).toHaveLength(2);
+        expect(screen.getByText("Section 010 topic")).toBeInTheDocument();
+        expect(screen.queryByText("Section 011 topic")).not.toBeInTheDocument();
+        expect(
+            within(getDay("Monday, October 12, 2026")).getByText(
+                "Class Meeting",
+            ),
+        ).toBeInTheDocument();
+        expect(
+            within(getDay("Tuesday, October 13, 2026")).queryByText(
+                "Class Meeting",
+            ),
+        ).not.toBeInTheDocument();
+
+        await user.click(
+            screen.getByRole("button", { name: "+ Create Topic" }),
+        );
+        await user.type(
+            screen.getByRole("textbox", { name: "Topic name" }),
+            "Unfinished topic",
+        );
+        await user.selectOptions(courseSelect, "CISC 275 - Section 011");
+        expect(
+            screen.queryByRole("textbox", { name: "Topic name" }),
+        ).not.toBeInTheDocument();
+        expect(screen.getByText("Section 011 topic")).toBeInTheDocument();
+        expect(screen.queryByText("Section 010 topic")).not.toBeInTheDocument();
+        expect(
+            within(getDay("Tuesday, October 13, 2026")).getByText(
+                "Class Meeting",
+            ),
+        ).toBeInTheDocument();
+        expect(
+            within(getDay("Monday, October 12, 2026")).queryByText(
+                "Class Meeting",
+            ),
+        ).not.toBeInTheDocument();
+    });
+
+    test.each([
+        { code: "CISC 275", section: "010" },
+        { code: "MATH 241", section: "" },
+    ])(
+        "does not invent class meetings for an unscheduled $code section '$section'",
+        async ({ code, section }) => {
+            const user = userEvent.setup();
+            localStorage.setItem(
+                "semester-planner-courses-v1",
+                JSON.stringify([
+                    { ...loadCourses()[0], code, section, schedule: "" },
+                ]),
+            );
+
+            render(<CalendarPage />);
+            await showOctober2026(user);
+
+            expect(
+                screen.getByRole("combobox", { name: "Course" }),
+            ).toBeEnabled();
+            expect(
+                screen.getByRole("button", { name: "+ Add Activity" }),
+            ).toBeEnabled();
+            expect(
+                screen.queryByRole("button", { name: /Class meeting on/ }),
+            ).not.toBeInTheDocument();
+        },
+    );
+
     test("moves between months", async () => {
         const user = userEvent.setup();
         render(<CalendarPage />);
@@ -83,6 +380,34 @@ describe("CalendarPage", () => {
         expect(
             screen.getByRole("heading", { name: "February 2027" }),
         ).toBeInTheDocument();
+        expect(
+            screen.getByText(/No courses in this semester/),
+        ).toBeInTheDocument();
+        expect(screen.getByRole("combobox", { name: "Course" })).toBeDisabled();
+        expect(
+            screen.getByRole("button", { name: "+ Add Activity" }),
+        ).toBeDisabled();
+        expect(
+            screen.queryByRole("button", { name: "+ Create Topic" }),
+        ).not.toBeInTheDocument();
+
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Fall 2026",
+        );
+        expect(
+            screen.queryByText(/No courses in this semester/),
+        ).not.toBeInTheDocument();
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "CISC 275",
+        );
+        expect(screen.getByRole("combobox", { name: "Course" })).toBeEnabled();
+        expect(
+            screen.getByRole("button", { name: "+ Add Activity" }),
+        ).toBeEnabled();
+        expect(
+            screen.getByRole("button", { name: "+ Create Topic" }),
+        ).toBeEnabled();
     });
 
     test("shows class meetings, topics and activities for the course", async () => {
@@ -295,6 +620,82 @@ describe("CalendarPage", () => {
                 "Add a name, a date, and a time to save this activity.",
             );
             expect(screen.getByRole("dialog")).toBeInTheDocument();
+        });
+
+        test("saves new activities under the selected custom course section and semester", async () => {
+            const user = setupUser();
+            localStorage.setItem(
+                "semester-planner-courses-v1",
+                JSON.stringify([
+                    {
+                        ...loadCourses()[0],
+                        id: "math010",
+                        code: "MATH 241",
+                        section: "010",
+                        semester: "Spring 2027",
+                        schedule: "Tue / Thu 9:00 AM - 10:15 AM",
+                    },
+                ]),
+            );
+            localStorage.setItem("semester-planner:calendar-items", "[]");
+            const view = render(<CalendarPage />);
+            await user.selectOptions(
+                screen.getByRole("combobox", { name: "Semester" }),
+                "Spring 2027",
+            );
+            await user.click(
+                screen.getByRole("button", { name: "+ Add Activity" }),
+            );
+            const dialog = screen.getByRole("dialog", { name: "Add Activity" });
+            expect(dialog).toHaveTextContent("MATH 241 - Section 010");
+            await user.type(
+                within(dialog).getByLabelText("Activity name"),
+                "Spring quiz",
+            );
+            await user.click(
+                within(dialog).getByRole("button", {
+                    name: "Tuesday, February 9, 2027",
+                }),
+            );
+            fireEvent.change(within(dialog).getByLabelText("Time"), {
+                target: { value: "09:30" },
+            });
+            await user.click(
+                within(dialog).getByRole("button", { name: "Save Activity" }),
+            );
+
+            expect(
+                within(getDay("Tuesday, February 9, 2027")).getByRole("group", {
+                    name: "Spring quiz",
+                }),
+            ).toBeInTheDocument();
+            expect(
+                JSON.parse(
+                    localStorage.getItem("semester-planner:calendar-items")!,
+                ),
+            ).toEqual([
+                expect.objectContaining({
+                    course: "MATH 241 - Section 010",
+                    semester: "Spring 2027",
+                    kind: "activity",
+                    title: "Spring quiz",
+                    date: "2027-02-09",
+                    detail: "Due 9:30 AM",
+                }),
+            ]);
+
+            view.unmount();
+            render(<CalendarPage />);
+            expect(
+                screen.queryByRole("group", { name: "Spring quiz" }),
+            ).not.toBeInTheDocument();
+            await user.selectOptions(
+                screen.getByRole("combobox", { name: "Semester" }),
+                "Spring 2027",
+            );
+            expect(
+                screen.getByRole("group", { name: "Spring quiz" }),
+            ).toBeInTheDocument();
         });
 
         test("closes the dialog with Escape", async () => {

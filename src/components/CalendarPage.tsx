@@ -3,6 +3,17 @@ import type { DragEvent, FormEvent } from "react";
 import { AddActivityDialog } from "./AddActivityDialog";
 import type { NewActivity } from "./AddActivityDialog";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
+import { loadCourses } from "./CoursesPage";
+import {
+    calendarCourses,
+    CANCELLED_KEY,
+    courseKey,
+    ITEMS_KEY,
+    loadCalendarItems,
+    loadSaved,
+    semesters,
+} from "./calendarStorage";
+import type { CalendarItem } from "./scheduleTemplate";
 import "./CalendarPage.css";
 import {
     WEEKDAYS,
@@ -15,27 +26,9 @@ import {
     toDateKey,
 } from "./calendarDates";
 
-interface Semester {
-    name: string;
-    start: string;
-    end: string;
-}
-
 interface Course {
     code: string;
     meetingDays: number[];
-}
-
-interface CalendarItem {
-    id: string;
-    course: string;
-    kind: "topic" | "activity";
-    title: string;
-    detail?: string;
-    // Topics without a date are listed under "Unscheduled topics".
-    date?: string;
-    // A topic attached to an activity is shown inside it, on its date.
-    activityId?: string;
 }
 
 interface GoogleCalendarEvent {
@@ -67,101 +60,6 @@ const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY as
 const GOOGLE_CALENDAR_ID =
     (import.meta.env.VITE_GOOGLE_CALENDAR_ID as string | undefined) ??
     "en.usa#holiday@group.v.calendar.google.com";
-
-const semesters: Semester[] = [
-    { name: "Fall 2026", start: "2026-09-01", end: "2026-12-14" },
-    { name: "Spring 2027", start: "2027-02-08", end: "2027-05-17" },
-];
-
-const courses: Course[] = [
-    { code: "CISC 275", meetingDays: [1, 3, 5] },
-    { code: "CISC 320", meetingDays: [2, 4] },
-];
-
-const initialItems: CalendarItem[] = [
-    {
-        id: "275-task-6",
-        course: "CISC 275",
-        kind: "activity",
-        title: "Task 6",
-        detail: "Due 11:59 PM",
-        date: "2026-10-11",
-    },
-    {
-        id: "275-immutability",
-        course: "CISC 275",
-        kind: "topic",
-        title: "Immutability",
-        date: "2026-10-12",
-    },
-    {
-        id: "275-array-methods",
-        course: "CISC 275",
-        kind: "topic",
-        title: "Higher Order Array Methods",
-        date: "2026-10-12",
-    },
-    {
-        id: "275-practice-test",
-        course: "CISC 275",
-        kind: "activity",
-        title: "Practice Test",
-        detail: "Due 2:45 PM",
-        date: "2026-10-16",
-    },
-    {
-        id: "275-react-intro",
-        course: "CISC 275",
-        kind: "topic",
-        title: "React Introduction",
-    },
-    {
-        id: "275-what-is-se",
-        course: "CISC 275",
-        kind: "topic",
-        title: "What is SE?",
-    },
-    { id: "275-forms", course: "CISC 275", kind: "topic", title: "Forms" },
-    {
-        id: "320-dynamic-programming",
-        course: "CISC 320",
-        kind: "topic",
-        title: "Dynamic Programming",
-        date: "2026-10-13",
-    },
-    {
-        id: "320-graph-search",
-        course: "CISC 320",
-        kind: "topic",
-        title: "Graph Search",
-    },
-    {
-        id: "320-greedy",
-        course: "CISC 320",
-        kind: "topic",
-        title: "Greedy Algorithms",
-    },
-];
-
-// Calendar data is saved in this browser so it survives a refresh.
-const ITEMS_KEY = "semester-planner:calendar-items";
-// Cancelled classes are stored as "COURSE|YYYY-MM-DD".
-const CANCELLED_KEY = "semester-planner:cancelled-classes";
-
-function loadSaved<T>(key: string, fallback: T[]): T[] {
-    try {
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            const parsed = JSON.parse(saved) as T[] | null;
-            if (Array.isArray(parsed)) {
-                return parsed;
-            }
-        }
-    } catch {
-        // Storage can be blocked or hold bad data; fall back to the defaults.
-    }
-    return fallback;
-}
 
 function save<T>(key: string, value: T[]) {
     try {
@@ -226,15 +124,40 @@ function getEventDateKeys(event: GoogleCalendarEvent): string[] {
 }
 
 export function CalendarPage() {
+    const [savedCourses] = useState(loadCourses);
     const [semesterName, setSemesterName] = useState(semesters[0].name);
-    const [courseCode, setCourseCode] = useState(courses[0].code);
+    const [courseCode, setCourseCode] = useState("");
+    const courses: Course[] = savedCourses
+        .filter((course) => course.semester === semesterName)
+        .map((course) => {
+            const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const meetingDays = course.schedule.match(
+                /\b(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\b/g,
+            );
+            const defaultCourse = calendarCourses.find(
+                (option) =>
+                    option.code.replace(/\s/g, "").toLowerCase() ===
+                    course.code.replace(/\s/g, "").toLowerCase(),
+            );
+            return {
+                code: courseKey(course.code, course.section),
+                meetingDays:
+                    meetingDays ?
+                        [
+                            ...new Set(
+                                meetingDays.map((day) => weekdays.indexOf(day)),
+                            ),
+                        ]
+                    : !course.schedule.trim() && !course.section ?
+                        (defaultCourse?.meetingDays ?? [])
+                    :   [],
+            };
+        });
     const [view, setView] = useState<CalendarView>("month");
     // The day the calendar is centred on: its month in the monthly view, its
     // week in the weekly view.
     const [focusDate, setFocusDate] = useState(() => new Date());
-    const [items, setItems] = useState<CalendarItem[]>(() =>
-        loadSaved(ITEMS_KEY, initialItems),
-    );
+    const [items, setItems] = useState<CalendarItem[]>(loadCalendarItems);
     const [cancelledClasses, setCancelledClasses] = useState<string[]>(() =>
         loadSaved<string>(CANCELLED_KEY, []),
     );
@@ -252,8 +175,9 @@ export function CalendarPage() {
     const semester =
         semesters.find((option) => option.name === semesterName) ??
         semesters[0];
-    const course =
-        courses.find((option) => option.code === courseCode) ?? courses[0];
+    const course = courses.find((option) => option.code === courseCode) ??
+        courses.at(0) ?? { code: "", meetingDays: [] };
+    const hasCourse = courses.length > 0;
     const visibleMonth = startOfMonth(focusDate);
     const grid =
         view === "month" ? getMonthGrid(visibleMonth) : getWeek(focusDate);
@@ -331,7 +255,9 @@ export function CalendarPage() {
         }
     }
 
-    const courseItems = items.filter((item) => item.course === course.code);
+    const courseItems = items.filter(
+        (item) => item.course === course.code && item.semester === semesterName,
+    );
     const unscheduledTopics = courseItems.filter(
         (item) => item.kind === "topic" && !item.date,
     );
@@ -339,6 +265,7 @@ export function CalendarPage() {
     function isClassMeeting(date: Date): boolean {
         const key = toDateKey(date);
         return (
+            hasCourse &&
             key >= semester.start &&
             key <= semester.end &&
             course.meetingDays.includes(date.getDay()) &&
@@ -423,6 +350,11 @@ export function CalendarPage() {
 
     function changeSemester(name: string) {
         setSemesterName(name);
+        setCourseCode("");
+        setTopicDraft(null);
+        setLastCancelled(null);
+        setOpenClass(null);
+        setAddingActivity(false);
         const next = semesters.find((option) => option.name === name);
         if (next) {
             setFocusDate(parseDateKey(next.start));
@@ -436,11 +368,13 @@ export function CalendarPage() {
 
     // Jump to the new activity so the user sees where it landed.
     function addActivity({ title, date, time }: NewActivity) {
+        if (!hasCourse) return;
         setItems((current) => [
             ...current,
             {
                 id: createItemId("activity"),
                 course: course.code,
+                semester: semesterName,
                 kind: "activity",
                 title,
                 detail: `Due ${formatTime(time)}`,
@@ -455,7 +389,7 @@ export function CalendarPage() {
     function createTopic(event: FormEvent) {
         event.preventDefault();
         const title = topicDraft?.trim();
-        if (!title) {
+        if (!title || !hasCourse) {
             return;
         }
         setItems((current) => [
@@ -463,6 +397,7 @@ export function CalendarPage() {
             {
                 id: createItemId("topic"),
                 course: course.code,
+                semester: semesterName,
                 kind: "topic",
                 title,
             },
@@ -687,9 +622,15 @@ export function CalendarPage() {
                 <label>
                     <span>Course</span>
                     <select
-                        value={courseCode}
-                        onChange={(event) => setCourseCode(event.target.value)}
+                        value={course.code}
+                        disabled={!hasCourse}
+                        onChange={(event) => {
+                            setCourseCode(event.target.value);
+                            setTopicDraft(null);
+                            setLastCancelled(null);
+                        }}
                     >
+                        {!hasCourse && <option value="">No courses</option>}
                         {courses.map((option) => (
                             <option key={option.code}>{option.code}</option>
                         ))}
@@ -698,6 +639,7 @@ export function CalendarPage() {
                 <button
                     ref={addActivityButton}
                     type="button"
+                    disabled={!hasCourse}
                     onClick={() => setAddingActivity(true)}
                 >
                     +&nbsp; Add Activity
@@ -773,92 +715,104 @@ export function CalendarPage() {
                 </div>
             )}
 
-            <div className="calendar-layout">
-                <aside
-                    className={`calendar-unscheduled${dropTarget === "unscheduled" ? " is-drop-target" : ""}`}
-                    aria-labelledby="unscheduled-title"
-                    onDragOver={(event) => allowDrop(event, "unscheduled")}
-                    onDragLeave={() => setDropTarget(null)}
-                    onDrop={() => dropTopic(undefined)}
-                >
-                    <h3 id="unscheduled-title">Unscheduled topics</h3>
-                    <p>Drag a topic onto a class meeting or activity</p>
-                    {unscheduledTopics.length > 0 ?
-                        <ul>{unscheduledTopics.map(renderTopic)}</ul>
-                    :   <p className="calendar-empty">All topics scheduled</p>}
-                    {topicDraft === null ?
-                        <button type="button" onClick={() => setTopicDraft("")}>
-                            +&nbsp; Create Topic
-                        </button>
-                    :   <form
-                            className="calendar-topic-form"
-                            onSubmit={createTopic}
-                        >
-                            <input
-                                type="text"
-                                aria-label="Topic name"
-                                placeholder="Topic name"
-                                value={topicDraft}
-                                autoFocus
-                                onChange={(event) =>
-                                    setTopicDraft(event.target.value)
-                                }
-                                onKeyDown={(event) => {
-                                    if (event.key === "Escape") {
-                                        setTopicDraft(null);
+            {!hasCourse ?
+                <p className="empty-message">
+                    No courses in this semester. Add a course on the Courses
+                    page to start planning.
+                </p>
+            :   <div className="calendar-layout">
+                    <aside
+                        className={`calendar-unscheduled${dropTarget === "unscheduled" ? " is-drop-target" : ""}`}
+                        aria-labelledby="unscheduled-title"
+                        onDragOver={(event) => allowDrop(event, "unscheduled")}
+                        onDragLeave={() => setDropTarget(null)}
+                        onDrop={() => dropTopic(undefined)}
+                    >
+                        <h3 id="unscheduled-title">Unscheduled topics</h3>
+                        <p>Drag a topic onto a class meeting or activity</p>
+                        {unscheduledTopics.length > 0 ?
+                            <ul>{unscheduledTopics.map(renderTopic)}</ul>
+                        :   <p className="calendar-empty">
+                                All topics scheduled
+                            </p>
+                        }
+                        {topicDraft === null ?
+                            <button
+                                type="button"
+                                onClick={() => setTopicDraft("")}
+                            >
+                                +&nbsp; Create Topic
+                            </button>
+                        :   <form
+                                className="calendar-topic-form"
+                                onSubmit={createTopic}
+                            >
+                                <input
+                                    type="text"
+                                    aria-label="Topic name"
+                                    placeholder="Topic name"
+                                    value={topicDraft}
+                                    autoFocus
+                                    onChange={(event) =>
+                                        setTopicDraft(event.target.value)
                                     }
-                                }}
-                            />
-                            <div>
-                                <button
-                                    type="button"
-                                    className="is-secondary"
-                                    onClick={() => setTopicDraft(null)}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={!topicDraft.trim()}
-                                >
-                                    Add
-                                </button>
-                            </div>
-                        </form>
-                    }
-                </aside>
-
-                <div className="calendar-grid-wrap">
-                    <table className={`calendar-grid is-${view}`}>
-                        <thead>
-                            <tr>
-                                {WEEKDAYS.map((day, index) => (
-                                    <th key={day} scope="col">
-                                        {view === "month" ?
-                                            <abbr title={day}>
-                                                {day.slice(0, 3)}
-                                            </abbr>
-                                        :   <>
-                                                {day}
-                                                <span className="calendar-header-date">
-                                                    {grid[index].getDate()}
-                                                </span>
-                                            </>
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Escape") {
+                                            setTopicDraft(null);
                                         }
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {weeks.map((week) => (
-                                <tr key={toDateKey(week[0])}>
-                                    {week.map(renderDay)}
+                                    }}
+                                />
+                                <div>
+                                    <button
+                                        type="button"
+                                        className="is-secondary"
+                                        onClick={() => setTopicDraft(null)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!topicDraft.trim()}
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+                            </form>
+                        }
+                    </aside>
+
+                    <div className="calendar-grid-wrap">
+                        <table className={`calendar-grid is-${view}`}>
+                            <thead>
+                                <tr>
+                                    {WEEKDAYS.map((day, index) => (
+                                        <th key={day} scope="col">
+                                            {view === "month" ?
+                                                <abbr title={day}>
+                                                    {day.slice(0, 3)}
+                                                </abbr>
+                                            :   <>
+                                                    {day}
+                                                    <span className="calendar-header-date">
+                                                        {grid[index].getDate()}
+                                                    </span>
+                                                </>
+                                            }
+                                        </th>
+                                    ))}
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {weeks.map((week) => (
+                                    <tr key={toDateKey(week[0])}>
+                                        {week.map(renderDay)}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            }
 
             {openClass && (
                 <ClassMeetingDialog
