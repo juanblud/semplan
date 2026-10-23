@@ -83,11 +83,6 @@ export function App() {
         setPage(next);
     }
 
-    function navigateTo(nextPage: Page) {
-        navigate(nextPage);
-        setCollapsed(nextPage !== "home");
-    }
-
     return (
         <div className={`app-shell${collapsed ? " is-collapsed" : ""}`}>
             <aside className="sidebar" aria-label="Sidebar">
@@ -123,7 +118,7 @@ export function App() {
                             title={collapsed ? item.label : undefined}
                             onClick={(event) => {
                                 event.preventDefault();
-                                navigateTo(item.id);
+                                navigate(item.id);
                             }}
                         >
                             <span className="nav-icon" aria-hidden="true">
@@ -148,12 +143,12 @@ export function App() {
                                 ),
                             )
                         }
-                        onOpenCourse={() => navigateTo("courses")}
+                        onOpenCourse={() => navigate("courses")}
                     />
                 : page === "courses" ?
                     <CoursesPage
                         tasks={tasks}
-                        onPlanInCalendar={() => navigateTo("calendar")}
+                        onPlanInCalendar={() => navigate("calendar")}
                     />
                 : page === "calendar" ?
                     <CalendarPage />

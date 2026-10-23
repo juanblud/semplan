@@ -333,6 +333,22 @@ describe("App", () => {
         ).toBeInTheDocument();
     });
 
+    test("keeps the sidebar open or closed when switching pages", async () => {
+        const user = userEvent.setup();
+        const { container } = render(<App />);
+
+        await user.click(screen.getByRole("link", { name: "Calendar" }));
+        expect(container.firstChild).not.toHaveClass("is-collapsed");
+
+        await user.click(
+            screen.getByRole("button", { name: "Collapse sidebar" }),
+        );
+        await user.click(screen.getByRole("link", { name: "Home" }));
+        expect(container.firstChild).toHaveClass("is-collapsed");
+        await user.click(screen.getByRole("link", { name: "Courses" }));
+        expect(container.firstChild).toHaveClass("is-collapsed");
+    });
+
     test("navigates to a sidebar section", async () => {
         const user = userEvent.setup();
         render(<App />);
