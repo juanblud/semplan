@@ -3,9 +3,6 @@ import type { DragEvent, FormEvent } from "react";
 import { AddActivityDialog } from "./AddActivityDialog";
 import type { NewActivity } from "./AddActivityDialog";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
-// ==================== EXPORT/IMPORT TEST: REMOVE START ====================
-import { DataTransferTEST } from "./DataTransferTEST";
-// ==================== EXPORT/IMPORT TEST: REMOVE END ======================
 import "./CalendarPage.css";
 import {
     WEEKDAYS,
@@ -705,9 +702,6 @@ export function CalendarPage() {
                 >
                     +&nbsp; Add Activity
                 </button>
-                {/* ============ EXPORT/IMPORT TEST: REMOVE START ============ */}
-                <DataTransferTEST />
-                {/* ============ EXPORT/IMPORT TEST: REMOVE END ============== */}
             </section>
 
             <div className="calendar-month-nav">
