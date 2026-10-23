@@ -79,7 +79,7 @@ describe("App", () => {
         render(<App />);
 
         expect(
-            screen.getByRole("heading", { name: /semester planning tool/i }),
+            screen.getByRole("heading", { name: "ProfPlan" }),
         ).toBeInTheDocument();
         expect(window.location.pathname).toBe("/Home");
     });
@@ -93,7 +93,7 @@ describe("App", () => {
         fireEvent(window, new PopStateEvent("popstate"));
 
         expect(
-            screen.getByRole("heading", { name: /semester planning tool/i }),
+            screen.getByRole("heading", { name: "ProfPlan" }),
         ).toBeInTheDocument();
     });
 
@@ -145,7 +145,7 @@ describe("App", () => {
         render(<App />);
 
         expect(
-            screen.getByRole("heading", { name: /semester planning tool/i }),
+            screen.getByRole("heading", { name: "ProfPlan" }),
         ).toBeInTheDocument();
         for (const label of [
             "Home",
@@ -167,10 +167,16 @@ describe("App", () => {
         const user = userEvent.setup();
         const { container } = render(<App />);
 
+        expect(
+            screen.getByRole("img", { name: "ProfPlan" }),
+        ).toBeInTheDocument();
         await user.click(
             screen.getByRole("button", { name: "Collapse sidebar" }),
         );
         expect(container.firstChild).toHaveClass("is-collapsed");
+        expect(
+            screen.queryByRole("img", { name: "ProfPlan" }),
+        ).not.toBeInTheDocument();
         expect(
             screen.getByRole("link", { name: "Calendar" }),
         ).toBeInTheDocument();
@@ -179,6 +185,9 @@ describe("App", () => {
             screen.getByRole("button", { name: "Expand sidebar" }),
         );
         expect(container.firstChild).not.toHaveClass("is-collapsed");
+        expect(
+            screen.getByRole("img", { name: "ProfPlan" }),
+        ).toBeInTheDocument();
     });
 
     test("keeps the sidebar open or closed when switching pages", async () => {
