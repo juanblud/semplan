@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import profPlanLogo from "./assets/prof-plan-logo.png";
 import { CalendarPage } from "./components/CalendarPage";
-import { CoursesPage } from "./components/CoursesPage";
+import { CoursesPage, loadCourses } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
 import { PlanningNotesPage } from "./components/PlanningNotesPage";
 import { SettingsPage } from "./components/SettingsPage";
@@ -86,6 +86,7 @@ function getPageFromUrl(role: Role): Page {
 export function App() {
     const [settings, setSettings] = useState(loadSettings);
     const [tasks, setTasks] = useState(initialTasks);
+    const [courses, setCourses] = useState(loadCourses);
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [page, setPage] = useState<Page>(() =>
         settings.roleSelected ? getPageFromUrl(settings.role) : "home",
@@ -193,6 +194,7 @@ export function App() {
             <main className="main-content">
                 {page === "home" ?
                     <HomePage
+                        courses={courses}
                         tasks={tasks}
                         onToggleTask={(id) =>
                             setTasks((current) =>
@@ -210,6 +212,8 @@ export function App() {
                     />
                 : page === "courses" ?
                     <CoursesPage
+                        courses={courses}
+                        onCoursesChange={setCourses}
                         tasks={tasks}
                         onPlanInCalendar={() => navigate("calendar")}
                     />

@@ -1,28 +1,24 @@
 import { useEffect, useState } from "react";
 import type { Task } from "../tasks";
-
-interface Course {
-    code: string;
-    title: string;
-    semester: string;
-}
+import type { Course } from "./CoursesPage";
 
 interface HomePageProps {
+    courses: Course[];
     tasks: Task[];
     onToggleTask: (id: number) => void;
     onOpenCourse: () => void;
 }
 
-const exampleCourses: Course[] = [
-    { code: "CISC 275", title: "Software Engineering", semester: "Fall 2026" },
-    { code: "CISC 320", title: "Algorithms", semester: "Fall 2026" },
-];
-
 function normalizeSearchText(value: string): string {
     return value.toLowerCase().replace(/\s+/g, "");
 }
 
-export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
+export function HomePage({
+    courses,
+    onOpenCourse,
+    tasks,
+    onToggleTask,
+}: HomePageProps) {
     const [search, setSearch] = useState("");
     const [semester, setSemester] = useState("Fall 2026");
     const [now, setNow] = useState(() => new Date());
@@ -39,7 +35,14 @@ export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
     const todayTasks = tasks.filter((task) => task.date === today);
 
     const normalizedSearch = normalizeSearchText(search);
-    const visibleCourses = exampleCourses.filter(
+    const semesters = Array.from(
+        new Set([
+            "Fall 2026",
+            "Spring 2027",
+            ...courses.map((course) => course.semester),
+        ]),
+    ).sort();
+    const visibleCourses = courses.filter(
         (course) =>
             course.semester === semester &&
             normalizeSearchText(`${course.code} ${course.title}`).includes(
@@ -64,8 +67,9 @@ export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
                         value={semester}
                         onChange={(event) => setSemester(event.target.value)}
                     >
-                        <option>Fall 2026</option>
-                        <option>Spring 2027</option>
+                        {semesters.map((term) => (
+                            <option key={term}>{term}</option>
+                        ))}
                     </select>
                 </label>
                 <label className="search-field">
@@ -87,10 +91,15 @@ export function HomePage({ onOpenCourse, tasks, onToggleTask }: HomePageProps) {
                 {visibleCourses.length > 0 ?
                     <div className="course-grid">
                         {visibleCourses.map((course) => (
-                            <article className="course-card" key={course.code}>
+                            <article className="course-card" key={course.id}>
                                 <h3>{course.code}</h3>
                                 <p>{course.title}</p>
-                                <p>{course.semester}</p>
+                                <p>
+                                    {course.section ?
+                                        `Section ${course.section} · `
+                                    :   ""}
+                                    {course.semester}
+                                </p>
                                 <button type="button" onClick={onOpenCourse}>
                                     Open Course Plan
                                 </button>

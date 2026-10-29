@@ -118,13 +118,24 @@ export function loadCourses(): Course[] {
     return initialCourses;
 }
 export function CoursesPage({
+    courses: sharedCourses,
+    onCoursesChange,
     tasks = [],
     onPlanInCalendar,
 }: {
+    courses?: Course[];
+    onCoursesChange?: (courses: Course[]) => void;
     tasks?: Task[];
     onPlanInCalendar?: (course: CalendarCourseSelection) => void;
 }) {
-    const [courses, setCourses] = useState(loadCourses);
+    const [localCourses, setLocalCourses] = useState(
+        () => sharedCourses ?? loadCourses(),
+    );
+    const courses = sharedCourses ?? localCourses;
+    function setCourses(next: Course[]) {
+        setLocalCourses(next);
+        onCoursesChange?.(next);
+    }
     const [semester, setSemester] = useState("Fall 2026");
     const [search, setSearch] = useState("");
     const [draft, setDraft] = useState<Course | null>(null);

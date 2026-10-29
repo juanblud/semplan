@@ -203,6 +203,94 @@ describe("App", () => {
         );
     });
 
+    test("Home reflects course creation, edits, and deletion, including after refresh", async () => {
+        const user = userEvent.setup();
+        const view = render(<App />);
+
+        await user.click(screen.getByRole("link", { name: "Courses" }));
+        await user.click(screen.getByRole("button", { name: "Create Course" }));
+        fireEvent.change(screen.getByLabelText("Course code *"), {
+            target: { value: "MATH 241" },
+        });
+        fireEvent.change(screen.getByLabelText("Course name *"), {
+            target: { value: "Calculus" },
+        });
+        await user.click(screen.getByRole("button", { name: "Save course" }));
+        await user.click(screen.getByRole("button", { name: "Edit MATH 241" }));
+        fireEvent.change(screen.getByLabelText("Course name *"), {
+            target: { value: "Calculus I" },
+        });
+        await user.click(screen.getByRole("button", { name: "Save course" }));
+
+        await user.click(screen.getByRole("link", { name: "Home" }));
+        expect(
+            screen.getByRole("heading", { name: "MATH 241" }),
+        ).toBeInTheDocument();
+        expect(screen.getByText("Calculus I")).toBeInTheDocument();
+        await user.click(screen.getByRole("link", { name: "Courses" }));
+        await user.click(
+            screen.getByRole("button", { name: "Delete MATH 241" }),
+        );
+        await user.click(
+            within(screen.getByRole("dialog")).getByRole("button", {
+                name: "Delete course",
+            }),
+        );
+        await user.click(screen.getByRole("link", { name: "Home" }));
+        expect(
+            screen.queryByRole("heading", { name: "MATH 241" }),
+        ).not.toBeInTheDocument();
+
+        view.unmount();
+        render(<App />);
+        expect(
+            screen.queryByRole("heading", { name: "MATH 241" }),
+        ).not.toBeInTheDocument();
+    });
+
+    test("Home displays saved sections and semesters from the Courses list", async () => {
+        const user = userEvent.setup();
+        const course = {
+            id: "fall010",
+            code: "CISC 275",
+            section: "010",
+            title: "Software Engineering",
+            semester: "Fall 2026",
+            instructor: "",
+            schedule: "",
+            location: "",
+            color: "#00539f",
+        };
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([
+                course,
+                { ...course, id: "fall011", section: "011" },
+                { ...course, id: "summer010", semester: "Summer 2027" },
+            ]),
+        );
+        render(<App />);
+
+        expect(
+            screen.getAllByRole("heading", { name: "CISC 275" }),
+        ).toHaveLength(2);
+        expect(screen.getByText("Section 010 · Fall 2026")).toBeInTheDocument();
+        expect(screen.getByText("Section 011 · Fall 2026")).toBeInTheDocument();
+        expect(
+            screen.queryByRole("heading", { name: "CISC 320" }),
+        ).not.toBeInTheDocument();
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Summer 2027",
+        );
+        expect(
+            screen.getAllByRole("heading", { name: "CISC 275" }),
+        ).toHaveLength(1);
+        expect(
+            screen.getByText("Section 010 · Summer 2027"),
+        ).toBeInTheDocument();
+    });
+
     test("deleting one section preserves other sections and semesters in Calendar", async () => {
         const user = userEvent.setup();
         const course = {
