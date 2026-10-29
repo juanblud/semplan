@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface Note {
     id: string;
@@ -107,7 +108,11 @@ function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
             style={{ gridRowEnd: `span ${rowSpan}` }}
         >
             <h2>{note.title || "Untitled note"}</h2>
-            {note.body && <p>{note.body}</p>}
+            {note.body && (
+                <div className="note-markdown">
+                    <ReactMarkdown skipHtml>{note.body}</ReactMarkdown>
+                </div>
+            )}
             <div className="note-card-actions">
                 <button
                     type="button"
@@ -244,6 +249,10 @@ export function PlanningNotesPage() {
                         value={body}
                         onChange={(event) => setBody(event.target.value)}
                     />
+                    <p className="note-markdown-hint">
+                        Markdown supported: **bold**, *italic*, headings, lists,
+                        links, quotes, and code.
+                    </p>
                     <div className="note-editor-actions">
                         <button type="button" onClick={closeEditor}>
                             Cancel
