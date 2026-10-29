@@ -3,6 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { App } from "../src/App";
 
 test("home shows today's scheduled tasks and shares changes with Task View", async () => {
+    localStorage.setItem(
+        "profplan:settings",
+        JSON.stringify({
+            darkMode: false,
+            largeFont: false,
+            role: "student",
+            roleSelected: true,
+        }),
+    );
     jest.useFakeTimers();
     jest.setSystemTime(new Date(2026, 9, 16, 12));
     try {

@@ -5,11 +5,37 @@ import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
 import { PlanningNotesPage } from "./components/PlanningNotesPage";
+import { SettingsPage } from "./components/SettingsPage";
+import type { Role, Settings } from "./components/SettingsPage";
 import { TaskViewPage } from "./components/TaskViewPage";
+import { WelcomeRoleDialog } from "./components/WelcomeRoleDialog";
 
 import { initialTasks } from "./tasks";
 
-type Page = "home" | "courses" | "calendar" | "planning-notes" | "tasks";
+type Page =
+    "home" | "courses" | "calendar" | "planning-notes" | "tasks" | "settings";
+const SETTINGS_KEY = "profplan:settings";
+
+function loadSettings(): Settings {
+    try {
+        const saved = JSON.parse(
+            localStorage.getItem(SETTINGS_KEY) ?? "null",
+        ) as Partial<Settings> | null;
+        return {
+            darkMode: saved?.darkMode === true,
+            largeFont: saved?.largeFont === true,
+            role: saved?.role === "professor" ? "professor" : "student",
+            roleSelected: saved?.roleSelected === true,
+        };
+    } catch {
+        return {
+            darkMode: false,
+            largeFont: false,
+            role: "student",
+            roleSelected: false,
+        };
+    }
+}
 
 interface NavigationItem {
     id: Page;
@@ -30,6 +56,7 @@ const navigation: NavigationItem[] = [
         path: "Planning-Notes",
     },
     { id: "tasks", label: "Task View", icon: "📋", path: "Task-View" },
+    { id: "settings", label: "Settings", icon: "⚙️", path: "Settings" },
 ];
 
 // Vite serves the site from "/" locally and "/<repo>/" on GitHub Pages.
@@ -42,22 +69,35 @@ function getPageUrl(page: Page): string {
 
 // The URL decides the page, so a refresh stays put. Matching ignores case and
 // a trailing slash; anything unknown falls back to Home.
-function getPageFromUrl(): Page {
+function getPageFromUrl(role: Role): Page {
     const path = decodeURIComponent(
         window.location.pathname.slice(BASE_URL.length),
     )
         .replace(/\/+$/, "")
         .toLowerCase();
-    return (
-        navigation.find((item) => item.path.toLowerCase() === path)?.id ??
-        "home"
-    );
+    const requested = navigation.find(
+        (item) => item.path.toLowerCase() === path,
+    )?.id;
+    return requested === "tasks" && role === "professor" ?
+            "home"
+        :   (requested ?? "home");
 }
 
 export function App() {
+    const [settings, setSettings] = useState(loadSettings);
     const [tasks, setTasks] = useState(initialTasks);
     const [collapsed, setCollapsed] = useState<boolean>(false);
-    const [page, setPage] = useState<Page>(getPageFromUrl);
+    const [page, setPage] = useState<Page>(() =>
+        settings.roleSelected ? getPageFromUrl(settings.role) : "home",
+    );
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        } catch {
+            // Settings still work for this visit if storage is unavailable.
+        }
+    }, [settings]);
 
     // Show the page's own URL, e.g. "/" or "/calendar/" becomes "/Calendar".
     useEffect(() => {
@@ -70,21 +110,33 @@ export function App() {
     // The browser's back and forward buttons change the URL, not the state.
     useEffect(() => {
         function syncWithUrl() {
-            setPage(getPageFromUrl());
+            const next =
+                settings.roleSelected ? getPageFromUrl(settings.role) : "home";
+            if (window.location.pathname !== getPageUrl(next)) {
+                window.history.replaceState(null, "", getPageUrl(next));
+            }
+            setPage(next);
         }
         window.addEventListener("popstate", syncWithUrl);
         return () => window.removeEventListener("popstate", syncWithUrl);
-    }, []);
+    }, [settings.role, settings.roleSelected]);
 
     function navigate(next: Page) {
+        if (next === "tasks" && settings.role === "professor") return;
         if (next !== page) {
             window.history.pushState(null, "", getPageUrl(next));
         }
         setPage(next);
     }
 
+    function selectInitialRole(role: Role) {
+        setSettings((current) => ({ ...current, role, roleSelected: true }));
+    }
+
     return (
-        <div className={`app-shell${collapsed ? " is-collapsed" : ""}`}>
+        <div
+            className={`app-shell${collapsed ? " is-collapsed" : ""}${settings.darkMode ? " is-dark" : ""}${settings.largeFont ? " is-large-font" : ""}`}
+        >
             <aside className="sidebar" aria-label="Sidebar">
                 <div className="sidebar-top">
                     {!collapsed && (
@@ -108,25 +160,33 @@ export function App() {
                     </button>
                 </div>
                 <nav className="sidebar-nav" aria-label="Main navigation">
-                    {navigation.map((item) => (
-                        <a
-                            key={item.id}
-                            href={getPageUrl(item.id)}
-                            className={`nav-link${page === item.id ? " active" : ""}`}
-                            aria-label={item.label}
-                            aria-current={page === item.id ? "page" : undefined}
-                            title={collapsed ? item.label : undefined}
-                            onClick={(event) => {
-                                event.preventDefault();
-                                navigate(item.id);
-                            }}
-                        >
-                            <span className="nav-icon" aria-hidden="true">
-                                {item.icon}
-                            </span>
-                            <span className="nav-label">{item.label}</span>
-                        </a>
-                    ))}
+                    {navigation
+                        .filter(
+                            (item) =>
+                                item.id !== "tasks" ||
+                                settings.role === "student",
+                        )
+                        .map((item) => (
+                            <a
+                                key={item.id}
+                                href={getPageUrl(item.id)}
+                                className={`nav-link${page === item.id ? " active" : ""}`}
+                                aria-label={item.label}
+                                aria-current={
+                                    page === item.id ? "page" : undefined
+                                }
+                                title={collapsed ? item.label : undefined}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    navigate(item.id);
+                                }}
+                            >
+                                <span className="nav-icon" aria-hidden="true">
+                                    {item.icon}
+                                </span>
+                                <span className="nav-label">{item.label}</span>
+                            </a>
+                        ))}
                 </nav>
             </aside>
 
@@ -138,7 +198,10 @@ export function App() {
                             setTasks((current) =>
                                 current.map((task) =>
                                     task.id === id ?
-                                        { ...task, completed: !task.completed }
+                                        {
+                                            ...task,
+                                            completed: !task.completed,
+                                        }
                                     :   task,
                                 ),
                             )
@@ -154,8 +217,13 @@ export function App() {
                     <CalendarPage />
                 : page === "planning-notes" ?
                     <PlanningNotesPage />
+                : page === "settings" ?
+                    <SettingsPage settings={settings} onChange={setSettings} />
                 :   <TaskViewPage tasks={tasks} setTasks={setTasks} />}
             </main>
+            {!settings.roleSelected && (
+                <WelcomeRoleDialog onSelect={selectInitialRole} />
+            )}
         </div>
     );
 }

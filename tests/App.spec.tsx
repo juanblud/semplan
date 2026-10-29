@@ -15,6 +15,80 @@ describe("App", () => {
     beforeEach(() => {
         window.history.replaceState(null, "", "/");
         localStorage.clear();
+        localStorage.setItem(
+            "profplan:settings",
+            JSON.stringify({
+                darkMode: false,
+                largeFont: false,
+                role: "student",
+                roleSelected: true,
+            }),
+        );
+    });
+
+    test("asks first-time visitors to choose a role and remembers Professor", async () => {
+        const user = userEvent.setup();
+        localStorage.removeItem("profplan:settings");
+        window.history.replaceState(null, "", "/Task-View");
+        const view = render(<App />);
+
+        const chooser = screen.getByRole("dialog", {
+            name: "Select Default Settings",
+        });
+        expect(within(chooser).getByText("I am a:")).toBeInTheDocument();
+        expect(window.location.pathname).toBe("/Home");
+        expect(
+            document.querySelector(".main-content .home-header h1"),
+        ).toHaveTextContent("ProfPlan");
+        await user.click(
+            within(chooser).getByRole("button", { name: "Professor" }),
+        );
+
+        expect(
+            screen.queryByRole("dialog", { name: "Select Default Settings" }),
+        ).not.toBeInTheDocument();
+        expect(window.location.pathname).toBe("/Home");
+        expect(
+            screen.queryByRole("link", { name: "Task View" }),
+        ).not.toBeInTheDocument();
+        expect(
+            JSON.parse(localStorage.getItem("profplan:settings") ?? "{}"),
+        ).toMatchObject({
+            role: "professor",
+            roleSelected: true,
+        });
+
+        view.unmount();
+        render(<App />);
+        expect(
+            screen.queryByRole("dialog", { name: "Select Default Settings" }),
+        ).not.toBeInTheDocument();
+    });
+
+    test("Student choice enables Task View after opening over Home", async () => {
+        const user = userEvent.setup();
+        localStorage.removeItem("profplan:settings");
+        window.history.replaceState(null, "", "/Task-View");
+        render(<App />);
+
+        expect(window.location.pathname).toBe("/Home");
+        expect(
+            document.querySelector(".main-content .home-header h1"),
+        ).toHaveTextContent("ProfPlan");
+
+        await user.click(
+            within(
+                screen.getByRole("dialog", { name: "Select Default Settings" }),
+            ).getByRole("button", { name: "Student" }),
+        );
+        expect(window.location.pathname).toBe("/Home");
+        expect(
+            screen.getByRole("link", { name: "Task View" }),
+        ).toBeInTheDocument();
+        await user.click(screen.getByRole("link", { name: "Task View" }));
+        expect(
+            screen.getByRole("heading", { name: "Task View" }),
+        ).toBeInTheDocument();
     });
 
     test("gives each sidebar page its own URL", async () => {
@@ -197,6 +271,54 @@ describe("App", () => {
             "Planning Notes",
         );
         expect(window.location.pathname).toBe("/Planning-Notes");
+    });
+
+    test("settings persist appearance and control Task View access", async () => {
+        const user = userEvent.setup();
+        const view = render(<App />);
+
+        await user.click(screen.getByRole("link", { name: "Settings" }));
+        expect(window.location.pathname).toBe("/Settings");
+        await user.click(screen.getByRole("checkbox", { name: /Dark Mode/ }));
+        await user.click(screen.getByRole("checkbox", { name: /Large Font/ }));
+        expect(document.querySelector(".app-shell")).toHaveClass(
+            "is-dark",
+            "is-large-font",
+        );
+
+        await user.click(screen.getByRole("button", { name: "Professor" }));
+        expect(
+            screen.getByRole("button", { name: "Professor" }),
+        ).toHaveAttribute("aria-pressed", "true");
+        expect(
+            screen.queryByRole("link", { name: "Task View" }),
+        ).not.toBeInTheDocument();
+
+        view.unmount();
+        window.history.replaceState(null, "", "/Task-View");
+        const restored = render(<App />);
+        expect(window.location.pathname).toBe("/Home");
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+            "ProfPlan",
+        );
+        expect(
+            screen.queryByRole("link", { name: "Task View" }),
+        ).not.toBeInTheDocument();
+        expect(document.querySelector(".app-shell")).toHaveClass(
+            "is-dark",
+            "is-large-font",
+        );
+
+        await user.click(screen.getByRole("link", { name: "Settings" }));
+        await user.click(screen.getByRole("button", { name: "Student" }));
+        expect(
+            screen.getByRole("link", { name: "Task View" }),
+        ).toBeInTheDocument();
+        await user.click(screen.getByRole("link", { name: "Task View" }));
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+            "Task View",
+        );
+        restored.unmount();
     });
 
     test("falls back to Home for unknown URLs", () => {
