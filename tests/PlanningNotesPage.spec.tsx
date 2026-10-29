@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { PlanningNotesPage } from "../src/components/PlanningNotesPage";
@@ -48,6 +48,61 @@ describe("PlanningNotesPage", () => {
         expect(
             screen.getByText("Your notes will appear here"),
         ).toBeInTheDocument();
+    });
+
+    test("renders saved Markdown and restores its plain source for editing", async () => {
+        const user = userEvent.setup();
+        const source = [
+            "## Lecture plan",
+            "",
+            "**Important** and *flexible*",
+            "",
+            "- Read the [guide](https://example.com)",
+            "- Review `code`",
+            "",
+            "> Bring examples",
+        ].join("\n");
+        const view = render(<PlanningNotesPage />);
+
+        await user.click(screen.getByRole("button", { name: "Add Note" }));
+        await user.type(
+            screen.getByRole("textbox", { name: "Title" }),
+            "Week 2",
+        );
+        fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
+            target: { value: source },
+        });
+        expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue(
+            source,
+        );
+        await user.click(screen.getByRole("button", { name: "Save note" }));
+
+        expect(
+            screen.getByRole("heading", { name: "Lecture plan" }),
+        ).toBeInTheDocument();
+        expect(screen.getByText("Important").tagName).toBe("STRONG");
+        expect(screen.getByText("flexible").tagName).toBe("EM");
+        expect(screen.getAllByRole("listitem")[0]).toHaveTextContent(
+            "Read the guide",
+        );
+        expect(screen.getByRole("link", { name: "guide" })).toHaveAttribute(
+            "href",
+            "https://example.com",
+        );
+        expect(screen.getByText("code").tagName).toBe("CODE");
+        expect(
+            screen.getByText("Bring examples").closest("blockquote"),
+        ).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Edit Week 2" }));
+        expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue(
+            source,
+        );
+        await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+        view.unmount();
+        render(<PlanningNotesPage />);
+        expect(screen.getByText("Important").tagName).toBe("STRONG");
     });
 
     test("sorts notes by edited or added time", async () => {
