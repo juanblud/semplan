@@ -60,3 +60,47 @@ export function formatTime(value: string): string {
     const period = hours >= 12 ? "PM" : "AM";
     return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${period}`;
 }
+
+// Whole Sunday-to-Saturday weeks from the week of `from` to the week of `to`.
+// Rounding absorbs the hour lost or gained at daylight saving changes.
+function weeksBetween(from: Date, to: Date): number {
+    const fromSunday = addDays(from, -from.getDay());
+    const toSunday = addDays(to, -to.getDay());
+    return Math.round(
+        (toSunday.getTime() - fromSunday.getTime()) / (7 * 86_400_000),
+    );
+}
+
+export function getSemesterWeekCount(
+    semesterStart: string,
+    semesterEnd: string,
+): number {
+    return (
+        weeksBetween(parseDateKey(semesterStart), parseDateKey(semesterEnd)) + 1
+    );
+}
+
+// Semester weeks run Sunday to Saturday; week 1 is the week the semester
+// starts in. Days outside the semester have no week number.
+export function getSemesterWeek(
+    date: Date,
+    semesterStart: string,
+    semesterEnd: string,
+): number | null {
+    const week = weeksBetween(parseDateKey(semesterStart), date) + 1;
+    return (
+            week >= 1 &&
+                week <= getSemesterWeekCount(semesterStart, semesterEnd)
+        ) ?
+            week
+        :   null;
+}
+
+// The Sunday that begins the given semester week.
+export function getSemesterWeekStart(
+    week: number,
+    semesterStart: string,
+): Date {
+    const start = parseDateKey(semesterStart);
+    return addDays(start, (week - 1) * 7 - start.getDay());
+}
