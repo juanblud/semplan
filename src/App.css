@@ -235,7 +235,7 @@
     background-attachment: fixed;
 }
 
-.app-shell.theme-ud.is-dark .main-content::before {
+.app-shell.is-dark .main-content::before {
     opacity: 0.12;
 }
 
@@ -417,8 +417,8 @@
     color: var(--ink);
 }
 
-/* The Blue Hens pattern belongs to the UD palette only. */
-.theme-ud .main-content::before {
+/* The Blue Hens pattern, recolored to match each palette and mode. */
+.main-content::before {
     position: absolute;
     z-index: -1;
     inset: 0;
@@ -426,6 +426,30 @@
     content: "";
     opacity: 0.08;
     pointer-events: none;
+}
+
+.theme-black-white .main-content::before {
+    background-image: url("./assets/background-pattern-bw.png");
+}
+
+.theme-black-white.is-dark .main-content::before {
+    background-image: url("./assets/background-pattern-bw-dark.png");
+}
+
+.theme-red .main-content::before {
+    background-image: url("./assets/background-pattern-red.png");
+}
+
+.theme-red.is-dark .main-content::before {
+    background-image: url("./assets/background-pattern-red-dark.png");
+}
+
+.theme-green .main-content::before {
+    background-image: url("./assets/background-pattern-green.png");
+}
+
+.theme-green.is-dark .main-content::before {
+    background-image: url("./assets/background-pattern-green-dark.png");
 }
 
 .home-header,
