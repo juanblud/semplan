@@ -107,7 +107,7 @@ describe("PlanningNotesPage", () => {
 
     test("sorts notes by edited or added time", async () => {
         localStorage.setItem(
-            "profplan-planning-notes",
+            "semplan-planning-notes",
             JSON.stringify([
                 {
                     id: "first",
@@ -170,7 +170,7 @@ describe("PlanningNotesPage", () => {
 
     test("keeps notes saved before timestamps were introduced", () => {
         localStorage.setItem(
-            "profplan-planning-notes",
+            "semplan-planning-notes",
             JSON.stringify([
                 { id: "100-abc", title: "Earlier", body: "Old note" },
                 { id: "200-def", title: "Later", body: "Another old note" },

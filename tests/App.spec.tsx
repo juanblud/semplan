@@ -16,7 +16,7 @@ describe("App", () => {
         window.history.replaceState(null, "", "/");
         localStorage.clear();
         localStorage.setItem(
-            "profplan:settings",
+            "semplan:settings",
             JSON.stringify({
                 darkMode: false,
                 largeFont: false,
@@ -28,7 +28,7 @@ describe("App", () => {
 
     test("asks first-time visitors to choose a role and remembers Professor", async () => {
         const user = userEvent.setup();
-        localStorage.removeItem("profplan:settings");
+        localStorage.removeItem("semplan:settings");
         window.history.replaceState(null, "", "/Task-View");
         const view = render(<App />);
 
@@ -39,7 +39,7 @@ describe("App", () => {
         expect(window.location.pathname).toBe("/Home");
         expect(
             document.querySelector(".main-content .home-header h1"),
-        ).toHaveTextContent("ProfPlan");
+        ).toHaveTextContent("SemPlan");
         await user.click(
             within(chooser).getByRole("button", { name: "Professor" }),
         );
@@ -52,7 +52,7 @@ describe("App", () => {
             screen.queryByRole("link", { name: "Task View" }),
         ).not.toBeInTheDocument();
         expect(
-            JSON.parse(localStorage.getItem("profplan:settings") ?? "{}"),
+            JSON.parse(localStorage.getItem("semplan:settings") ?? "{}"),
         ).toMatchObject({
             role: "professor",
             roleSelected: true,
@@ -67,14 +67,14 @@ describe("App", () => {
 
     test("Student choice enables Task View after opening over Home", async () => {
         const user = userEvent.setup();
-        localStorage.removeItem("profplan:settings");
+        localStorage.removeItem("semplan:settings");
         window.history.replaceState(null, "", "/Task-View");
         render(<App />);
 
         expect(window.location.pathname).toBe("/Home");
         expect(
             document.querySelector(".main-content .home-header h1"),
-        ).toHaveTextContent("ProfPlan");
+        ).toHaveTextContent("SemPlan");
 
         await user.click(
             within(
@@ -387,7 +387,7 @@ describe("App", () => {
         const restored = render(<App />);
         expect(window.location.pathname).toBe("/Home");
         expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-            "ProfPlan",
+            "SemPlan",
         );
         expect(
             screen.queryByRole("link", { name: "Task View" }),
@@ -414,7 +414,7 @@ describe("App", () => {
         render(<App />);
 
         expect(
-            screen.getByRole("heading", { name: "ProfPlan" }),
+            screen.getByRole("heading", { name: "SemPlan" }),
         ).toBeInTheDocument();
         expect(window.location.pathname).toBe("/Home");
     });
@@ -428,7 +428,7 @@ describe("App", () => {
         fireEvent(window, new PopStateEvent("popstate"));
 
         expect(
-            screen.getByRole("heading", { name: "ProfPlan" }),
+            screen.getByRole("heading", { name: "SemPlan" }),
         ).toBeInTheDocument();
     });
 
@@ -498,7 +498,7 @@ describe("App", () => {
         render(<App />);
 
         expect(
-            screen.getByRole("heading", { name: "ProfPlan" }),
+            screen.getByRole("heading", { name: "SemPlan" }),
         ).toBeInTheDocument();
         for (const label of [
             "Home",
@@ -521,14 +521,14 @@ describe("App", () => {
         const { container } = render(<App />);
 
         expect(
-            screen.getByRole("img", { name: "ProfPlan" }),
+            screen.getByRole("img", { name: "SemPlan" }),
         ).toBeInTheDocument();
         await user.click(
             screen.getByRole("button", { name: "Collapse sidebar" }),
         );
         expect(container.firstChild).toHaveClass("is-collapsed");
         expect(
-            screen.queryByRole("img", { name: "ProfPlan" }),
+            screen.queryByRole("img", { name: "SemPlan" }),
         ).not.toBeInTheDocument();
         expect(
             screen.getByRole("link", { name: "Calendar" }),
@@ -539,7 +539,7 @@ describe("App", () => {
         );
         expect(container.firstChild).not.toHaveClass("is-collapsed");
         expect(
-            screen.getByRole("img", { name: "ProfPlan" }),
+            screen.getByRole("img", { name: "SemPlan" }),
         ).toBeInTheDocument();
     });
 

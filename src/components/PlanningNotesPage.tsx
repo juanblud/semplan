@@ -14,7 +14,7 @@ type StoredNote = Pick<Note, "id" | "title" | "body"> &
 
 type SortBy = "updatedAt" | "createdAt";
 
-const storageKey = "profplan-planning-notes";
+const storageKey = "semplan-planning-notes";
 
 function loadNotes(): Note[] {
     try {
@@ -219,7 +219,6 @@ export function PlanningNotesPage() {
             <header className="page-header notes-header">
                 <div>
                     <h1>Planning Notes</h1>
-                    <p>Keep ideas, reminders, and plans in one place.</p>
                 </div>
                 <button
                     className="add-note-button"

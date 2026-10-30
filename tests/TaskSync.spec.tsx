@@ -4,7 +4,7 @@ import { App } from "../src/App";
 
 test("home shows today's scheduled tasks and shares changes with Task View", async () => {
     localStorage.setItem(
-        "profplan:settings",
+        "semplan:settings",
         JSON.stringify({
             darkMode: false,
             largeFont: false,
