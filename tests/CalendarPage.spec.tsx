@@ -375,7 +375,8 @@ describe("CalendarPage", () => {
         render(<CalendarPage />);
         await showOctober2026(user);
         const courseSelect = screen.getByRole("combobox", { name: "Course" });
-        expect(within(courseSelect).getAllByRole("option")).toHaveLength(2);
+        // Both sections, plus All Courses.
+        expect(within(courseSelect).getAllByRole("option")).toHaveLength(3);
         expect(screen.getByText("Section 010 topic")).toBeInTheDocument();
         expect(screen.queryByText("Section 011 topic")).not.toBeInTheDocument();
         expect(
@@ -412,6 +413,111 @@ describe("CalendarPage", () => {
                 "Class Meeting",
             ),
         ).not.toBeInTheDocument();
+    });
+
+    test("shows every course in time order under All Courses and moves topics between them", async () => {
+        const user = userEvent.setup();
+        const base = loadCourses()[0];
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([
+                {
+                    ...base,
+                    id: "section010",
+                    section: "010",
+                    schedule: "Mon / Wed 1:50 PM - 2:45 PM",
+                },
+                {
+                    ...base,
+                    id: "section011",
+                    section: "011",
+                    schedule: "Wed 9:00 - 10:15 AM",
+                },
+            ]),
+        );
+        localStorage.setItem(
+            "semester-planner:calendar-items",
+            JSON.stringify([
+                {
+                    id: "misplaced",
+                    course: "CISC 275 - Section 010",
+                    semester: "Fall 2026",
+                    kind: "topic",
+                    title: "Misplaced topic",
+                    date: "2026-10-14",
+                },
+            ]),
+        );
+
+        render(<CalendarPage />);
+        await showOctober2026(user);
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Course" }),
+            "All Courses",
+        );
+
+        const wednesday = getDay("Wednesday, October 14, 2026");
+        const [morning, afternoon] = within(wednesday).getAllByRole("button", {
+            name: /class meeting on/,
+        });
+        expect(morning).toHaveAccessibleName(
+            "CISC 275 - Section 011 class meeting on Wednesday, October 14, 2026, 9:00 - 10:15 AM",
+        );
+        expect(afternoon).toHaveTextContent("1:50 PM - 2:45 PM");
+        expect(
+            within(afternoon.parentElement as HTMLElement).getByText(
+                "Misplaced topic",
+            ),
+        ).toBeInTheDocument();
+
+        fireEvent.dragStart(screen.getByText("Misplaced topic"), {
+            dataTransfer: { setData: jest.fn() },
+        });
+        fireEvent.dragOver(morning);
+        fireEvent.drop(morning);
+
+        expect(
+            within(morning.parentElement as HTMLElement).getByText(
+                "Misplaced topic",
+            ),
+        ).toBeInTheDocument();
+
+        // A topic created here has no course until it is dragged onto one.
+        await user.click(
+            screen.getByRole("button", { name: "+ Create Topic" }),
+        );
+        expect(
+            screen.queryByRole("combobox", { name: "Topic course" }),
+        ).not.toBeInTheDocument();
+        await user.type(
+            screen.getByRole("textbox", { name: "Topic name" }),
+            "New topic{Enter}",
+        );
+        const notAssigned = screen.getByRole("heading", {
+            name: "Not assigned yet",
+        });
+        expect(
+            within(notAssigned.parentElement as HTMLElement).getByText(
+                "New topic",
+            ),
+        ).toBeInTheDocument();
+        fireEvent.dragStart(screen.getByText("New topic"), {
+            dataTransfer: { setData: jest.fn() },
+        });
+        fireEvent.dragOver(morning);
+        fireEvent.drop(morning);
+        expect(
+            within(morning.parentElement as HTMLElement).getByText("New topic"),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole("heading", { name: "Not assigned yet" }),
+        ).not.toBeInTheDocument();
+
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Course" }),
+            "CISC 275 - Section 011",
+        );
+        expect(screen.getByText("Misplaced topic")).toBeInTheDocument();
     });
 
     test.each([
@@ -628,6 +734,23 @@ describe("CalendarPage", () => {
                 advanceTimers: (ms) => jest.advanceTimersByTime(ms),
             });
         }
+
+        test("highlights the current week in the monthly view to start", () => {
+            render(<CalendarPage />);
+
+            expect(getDay("Sunday, October 11, 2026")).toHaveClass(
+                "is-selected-week",
+            );
+            expect(getDay("Saturday, October 17, 2026")).toHaveClass(
+                "is-selected-week",
+            );
+            expect(getDay("Sunday, October 18, 2026")).not.toHaveClass(
+                "is-selected-week",
+            );
+            expect(
+                screen.getByRole("button", { name: "Select week 7" }),
+            ).toHaveAttribute("aria-pressed", "true");
+        });
 
         test("opens on the current week and lays out class days", async () => {
             const user = setupUser();
