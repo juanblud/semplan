@@ -25,6 +25,26 @@
     text-transform: uppercase;
 }
 
+.calendar-toolbar input[type="date"] {
+    height: 38px;
+    padding: 1px 8px;
+    border: 1px solid #b9c6d6;
+    border-radius: 6px;
+    background: var(--field);
+    color: var(--ink);
+    font: inherit;
+    font-size: calc(16px + var(--font-bump));
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+/* Placeholder until semester dates are editable. */
+.calendar-toolbar input[type="date"]:disabled {
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
 .calendar-toolbar select {
     width: 190px;
     height: 38px;

@@ -668,6 +668,28 @@ export function CalendarPage() {
                         ))}
                     </select>
                 </label>
+                {/* PLACEHOLDER: the semester's first and last day drive the
+                    week numbers. These show the built-in dates for now; they
+                    will become editable once they are tied in with the course
+                    input on the Courses page. */}
+                <label>
+                    <span>First day</span>
+                    <input
+                        type="date"
+                        value={semester.start}
+                        disabled
+                        title="Editing semester dates is coming soon"
+                    />
+                </label>
+                <label>
+                    <span>Last day</span>
+                    <input
+                        type="date"
+                        value={semester.end}
+                        disabled
+                        title="Editing semester dates is coming soon"
+                    />
+                </label>
                 <label>
                     <span>Course</span>
                     <select
