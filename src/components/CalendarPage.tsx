@@ -34,6 +34,7 @@ import {
 interface Course {
     code: string;
     meetingDays: number[];
+    meetingTime: string;
 }
 
 interface GoogleCalendarEvent {
@@ -43,12 +44,20 @@ interface GoogleCalendarEvent {
     end: { date?: string; dateTime?: string };
 }
 
-// A just-cancelled class and the topics it sent back, so it can be undone.
-interface CancelledClass {
-    key: string;
+// One course's class on one day.
+interface OpenClass {
+    course: string;
     date: string;
+}
+
+// A just-cancelled class and the topics it sent back, so it can be undone.
+interface CancelledClass extends OpenClass {
+    key: string;
     topicIds: string[];
 }
+
+// Where a dragged topic or activity lands.
+type ItemPlacement = Pick<CalendarItem, "course" | "date" | "activityId">;
 
 interface RangeEvents {
     rangeKey: string;
@@ -57,6 +66,9 @@ interface RangeEvents {
 }
 
 type CalendarView = "month" | "week";
+
+// The course picker's value for the read-only overview of every course.
+const ALL_COURSES = "__all__";
 
 // The Google Calendar API is only used to fetch events for the month or week
 // being shown. Set these in .env.local; without a key the calendar still works.
@@ -83,6 +95,28 @@ let itemCount = 0;
 function createItemId(kind: CalendarItem["kind"]): string {
     itemCount += 1;
     return `${kind}-${Date.now().toString(36)}-${itemCount}`;
+}
+
+// "1:50 PM - 2:45 PM" starts at 13:50. A start with no AM or PM shares the
+// end's, unless that would put it after the end ("11:00 - 12:15 PM").
+function getStartMinutes(meetingTime: string): number {
+    const match = meetingTime.match(
+        /^(\d{1,2}):(\d{2})(?: (AM|PM))? - (\d{1,2}):\d{2} (AM|PM)$/,
+    );
+    if (!match) {
+        return Infinity;
+    }
+    // An optional group that didn't match is undefined.
+    const [, hour, minute, startPeriod, endHour, endPeriod] = match as (
+        string | undefined
+    )[];
+    const otherPeriod = endPeriod === "PM" ? "AM" : "PM";
+    const period =
+        startPeriod ??
+        (Number(hour) % 12 > Number(endHour) % 12 ? otherPeriod : endPeriod);
+    return (
+        ((Number(hour) % 12) + (period === "PM" ? 12 : 0)) * 60 + Number(minute)
+    );
 }
 
 function getWeek(date: Date): Date[] {
@@ -144,8 +178,12 @@ export function CalendarPage() {
                     option.code.replace(/\s/g, "").toLowerCase() ===
                     course.code.replace(/\s/g, "").toLowerCase(),
             );
+            // "Mon / Wed 1:50 PM - 2:45 PM" meets at "1:50 PM - 2:45 PM".
+            const meetingTime =
+                course.schedule.match(/\d{1,2}:\d{2}.*$/)?.[0] ?? "";
             return {
                 code: courseKey(course.code, course.section),
+                meetingTime,
                 meetingDays:
                     meetingDays ?
                         [
@@ -166,7 +204,7 @@ export function CalendarPage() {
     const [cancelledClasses, setCancelledClasses] = useState<string[]>(() =>
         loadSaved<string>(CANCELLED_KEY, []),
     );
-    const [openClass, setOpenClass] = useState<string | null>(null);
+    const [openClass, setOpenClass] = useState<OpenClass | null>(null);
     const [lastCancelled, setLastCancelled] = useState<CancelledClass | null>(
         null,
     );
@@ -175,6 +213,7 @@ export function CalendarPage() {
     const [rangeEvents, setRangeEvents] = useState<RangeEvents | null>(null);
     const [addingActivity, setAddingActivity] = useState(false);
     const [topicDraft, setTopicDraft] = useState<string | null>(null);
+    const [topicCourse, setTopicCourse] = useState("");
     const [weekLabels, setWeekLabels] = useState<WeekLabel[]>(() =>
         loadSaved<WeekLabel>(WEEK_LABELS_KEY, []),
     );
@@ -184,8 +223,10 @@ export function CalendarPage() {
         semesters.find((option) => option.name === semesterName) ??
         semesters[0];
     const course = courses.find((option) => option.code === courseCode) ??
-        courses.at(0) ?? { code: "", meetingDays: [] };
+        courses.at(0) ?? { code: "", meetingDays: [], meetingTime: "" };
     const hasCourse = courses.length > 0;
+    const canShowAll = courses.length > 1;
+    const showAll = canShowAll && courseCode === ALL_COURSES;
     const visibleMonth = startOfMonth(focusDate);
     const grid =
         view === "month" ? getMonthGrid(visibleMonth) : getWeek(focusDate);
@@ -267,14 +308,30 @@ export function CalendarPage() {
         }
     }
 
+    // All Courses plans every course at once; otherwise just the chosen one.
+    const visibleCourses = showAll ? courses : [course];
     const courseItems = items.filter(
-        (item) => item.course === course.code && item.semester === semesterName,
+        (item) =>
+            item.semester === semesterName &&
+            visibleCourses.some((option) => option.code === item.course),
     );
+    const draggedItem = items.find((item) => item.id === draggedId);
+    // New topics go to the chosen course, or in All Courses the one picked in
+    // the topic form.
+    const draftCourse =
+        showAll ?
+            (courses.find((option) => option.code === topicCourse)?.code ??
+            course.code)
+        :   course.code;
     const weekCount = getSemesterWeekCount(semester.start, semester.end);
     const focusWeek = getSemesterWeek(focusDate, semester.start, semester.end);
     const todayWeek = getSemesterWeek(new Date(), semester.start, semester.end);
 
+    // Week labels belong to one course, so All Courses shows none.
     function getWeekLabel(week: number | null): string {
+        if (showAll) {
+            return "";
+        }
         return (
             weekLabels.find(
                 (entry) =>
@@ -311,28 +368,42 @@ export function CalendarPage() {
         (item) => item.kind === "topic" && !item.date,
     );
 
-    function isClassMeeting(date: Date): boolean {
+    function isClassMeeting(date: Date, meetingCourse = course): boolean {
         const key = toDateKey(date);
         return (
             hasCourse &&
             key >= semester.start &&
             key <= semester.end &&
-            course.meetingDays.includes(date.getDay()) &&
-            !cancelledClasses.includes(classKey(course.code, key))
+            meetingCourse.meetingDays.includes(date.getDay()) &&
+            !cancelledClasses.includes(classKey(meetingCourse.code, key))
         );
     }
 
-    function getClassTopics(date: string): CalendarItem[] {
+    // Earliest first, so back-to-back classes stack in the order they meet.
+    function getMeetings(date: Date): Course[] {
+        return visibleCourses
+            .filter((option) => isClassMeeting(date, option))
+            .sort(
+                (a, b) =>
+                    getStartMinutes(a.meetingTime) -
+                    getStartMinutes(b.meetingTime),
+            );
+    }
+
+    function getClassTopics({ course: code, date }: OpenClass): CalendarItem[] {
         return courseItems.filter(
             (item) =>
-                item.kind === "topic" && item.date === date && !item.activityId,
+                item.kind === "topic" &&
+                item.course === code &&
+                item.date === date &&
+                !item.activityId,
         );
     }
 
     // The class's topics go back to the unscheduled list; activities stay.
-    function cancelClass(date: string) {
-        const key = classKey(course.code, date);
-        const topicIds = getClassTopics(date).map((item) => item.id);
+    function cancelClass(meeting: OpenClass) {
+        const key = classKey(meeting.course, meeting.date);
+        const topicIds = getClassTopics(meeting).map((item) => item.id);
         setItems((current) =>
             current.map((item) =>
                 topicIds.includes(item.id) ?
@@ -341,7 +412,7 @@ export function CalendarPage() {
             ),
         );
         setCancelledClasses((current) => [...current, key]);
-        setLastCancelled({ key, date, topicIds });
+        setLastCancelled({ ...meeting, key, topicIds });
         setOpenClass(null);
     }
 
@@ -416,13 +487,13 @@ export function CalendarPage() {
     }
 
     // Jump to the new activity so the user sees where it landed.
-    function addActivity({ title, date, time }: NewActivity) {
+    function addActivity({ title, date, time, course: code }: NewActivity) {
         if (!hasCourse) return;
         setItems((current) => [
             ...current,
             {
                 id: createItemId("activity"),
-                course: course.code,
+                course: code,
                 semester: semesterName,
                 kind: "activity",
                 title,
@@ -445,7 +516,7 @@ export function CalendarPage() {
             ...current,
             {
                 id: createItemId("topic"),
-                course: course.code,
+                course: draftCourse,
                 semester: semesterName,
                 kind: "topic",
                 title,
@@ -454,7 +525,10 @@ export function CalendarPage() {
         setTopicDraft(null);
     }
 
+    // Topics sit inside activities, so stop their drag starting the
+    // activity's too.
     function startDrag(event: DragEvent, id: string) {
+        event.stopPropagation();
         event.dataTransfer.setData("text/plain", id);
         event.dataTransfer.effectAllowed = "move";
         setDraggedId(id);
@@ -472,20 +546,26 @@ export function CalendarPage() {
         }
     }
 
-    function moveTopic(id: string, date?: string, activityId?: string) {
+    // A dropped item takes on the course it lands in, so one put in the wrong
+    // class can be dragged into the right one. An activity's topics move with
+    // it.
+    function moveItem(id: string, target: ItemPlacement) {
         setItems((current) =>
             current.map((item) =>
-                item.id === id ? { ...item, date, activityId } : item,
+                item.id === id ? { ...item, ...target }
+                : item.activityId === id ?
+                    { ...item, course: target.course, date: target.date }
+                :   item,
             ),
         );
     }
 
     // A topic dropped on a class meeting is scheduled for that day, on an
     // activity it joins that activity, and on the unscheduled list it loses
-    // its date.
-    function dropTopic(date?: string, activityId?: string) {
+    // its date. Activities can be dropped on any day.
+    function dropItem(target: ItemPlacement) {
         if (draggedId) {
-            moveTopic(draggedId, date, activityId);
+            moveItem(draggedId, target);
         }
         endDrag();
     }
@@ -520,16 +600,21 @@ export function CalendarPage() {
     }
 
     // Activities take dropped topics on any day, not just class meetings, so
-    // they stop the drag events reaching the day cell.
+    // they stop those drag events reaching the day cell. A dragged activity
+    // passes over them to the meeting or day underneath.
     function renderActivity(activity: CalendarItem) {
         const target = `activity:${activity.id}`;
+        const takesTopic = draggedItem?.kind === "topic";
         const activityTopics = courseItems.filter(
             (item) => item.kind === "topic" && item.activityId === activity.id,
         );
+        const title =
+            showAll ? `${activity.course}: ${activity.title}` : activity.title;
         const className = [
             "calendar-activity",
-            draggedId && "accepts-drop",
+            takesTopic && "accepts-drop",
             dropTarget === target && "is-drop-target",
+            draggedId === activity.id && "is-dragging",
         ]
             .filter(Boolean)
             .join(" ");
@@ -539,22 +624,35 @@ export function CalendarPage() {
                 key={activity.id}
                 className={className}
                 role="group"
-                aria-label={activity.title}
+                aria-label={title}
+                draggable
+                onDragStart={(event) => startDrag(event, activity.id)}
+                onDragEnd={endDrag}
                 onDragOver={(event) => {
-                    event.stopPropagation();
-                    allowDrop(event, target);
+                    if (takesTopic) {
+                        event.stopPropagation();
+                        allowDrop(event, target);
+                    }
                 }}
                 onDragLeave={(event) => {
-                    event.stopPropagation();
-                    setDropTarget(null);
+                    if (takesTopic) {
+                        event.stopPropagation();
+                        setDropTarget(null);
+                    }
                 }}
                 onDrop={(event) => {
-                    event.stopPropagation();
-                    dropTopic(activity.date, activity.id);
+                    if (takesTopic) {
+                        event.stopPropagation();
+                        dropItem({
+                            course: activity.course,
+                            date: activity.date,
+                            activityId: activity.id,
+                        });
+                    }
                 }}
             >
                 {renderDeleteButton(activity)}
-                <strong>{activity.title}</strong>
+                <strong>{title}</strong>
                 {activity.detail && <span>{activity.detail}</span>}
                 {activityTopics.length > 0 && (
                     <ul className="calendar-activity-topics">
@@ -565,17 +663,104 @@ export function CalendarPage() {
         );
     }
 
-    function renderDay(date: Date) {
+    function renderMeeting(
+        meeting: Course,
+        date: Date,
+        dayItems: CalendarItem[],
+    ) {
         const key = toDateKey(date);
-        const meeting = isClassMeeting(date);
-        const dayItems = courseItems.filter((item) => item.date === key);
-        const topics = dayItems.filter(
+        const target = `meeting:${classKey(meeting.code, key)}`;
+        const meetingItems = dayItems.filter(
+            (item) => item.course === meeting.code,
+        );
+        const topics = meetingItems.filter(
             (item) => item.kind === "topic" && !item.activityId,
         );
-        const activities = dayItems
-            .filter((item) => item.kind === "activity")
+        const activities = meetingItems.filter(
+            (item) => item.kind === "activity",
+        );
+        const className = [
+            "calendar-meeting",
+            dropTarget === target && "is-drop-target",
+        ]
+            .filter(Boolean)
+            .join(" ");
+
+        return (
+            // Clicking the meeting, but not its topics or activities, opens
+            // the class pop-up. The label button is the keyboard route; its
+            // click bubbles up to here.
+            <div
+                key={meeting.code}
+                className={className}
+                onClick={(event) => {
+                    const clicked = event.target as Element;
+                    if (
+                        !clicked.closest(".calendar-topic, .calendar-activity")
+                    ) {
+                        setOpenClass({ course: meeting.code, date: key });
+                    }
+                }}
+                onDragOver={(event) => {
+                    event.stopPropagation();
+                    allowDrop(event, target);
+                }}
+                onDragLeave={(event) => {
+                    event.stopPropagation();
+                    setDropTarget(null);
+                }}
+                onDrop={(event) => {
+                    event.stopPropagation();
+                    dropItem({
+                        course: meeting.code,
+                        date: key,
+                        activityId: undefined,
+                    });
+                }}
+            >
+                <button
+                    type="button"
+                    className="calendar-meeting-label"
+                    aria-label={`${showAll ? `${meeting.code} class` : "Class"} meeting on ${formatLongDate(date)}${
+                        meeting.meetingTime ? `, ${meeting.meetingTime}` : ""
+                    }`}
+                >
+                    {showAll ? meeting.code : "Class Meeting"}
+                    {meeting.meetingTime && (
+                        <span className="calendar-meeting-time">
+                            {meeting.meetingTime}
+                        </span>
+                    )}
+                </button>
+                <ul>{topics.map(renderTopic)}</ul>
+                {activities.map(renderActivity)}
+                {view === "week" && meetingItems.length === 0 && (
+                    <p className="calendar-placeholder">
+                        No Topics or Activities Scheduled
+                    </p>
+                )}
+            </div>
+        );
+    }
+
+    function renderDay(date: Date) {
+        const key = toDateKey(date);
+        const meetings = getMeetings(date);
+        const dayItems = courseItems.filter((item) => item.date === key);
+        // Activities sit in their course's meeting when it meets that day.
+        const looseActivities = dayItems
+            .filter(
+                (item) =>
+                    item.kind === "activity" &&
+                    !meetings.some((meeting) => meeting.code === item.course),
+            )
             .map(renderActivity);
         const dayEvents = eventsByDate.get(key) ?? [];
+        // Outside a meeting, the day takes activities, and topics only when a
+        // single course is shown and meets that day.
+        const acceptsDrop =
+            draggedItem?.kind === "activity" ||
+            (!showAll && meetings.length > 0);
         const className = [
             "calendar-day",
             view === "month" &&
@@ -592,9 +777,20 @@ export function CalendarPage() {
                 key={key}
                 className={className}
                 aria-label={formatLongDate(date)}
-                onDragOver={(event) => meeting && allowDrop(event, key)}
+                onDragOver={(event) => acceptsDrop && allowDrop(event, key)}
                 onDragLeave={() => setDropTarget(null)}
-                onDrop={() => meeting && dropTopic(key)}
+                onDrop={() =>
+                    acceptsDrop &&
+                    draggedItem &&
+                    dropItem({
+                        course:
+                            draggedItem.kind === "activity" ?
+                                draggedItem.course
+                            :   course.code,
+                        date: key,
+                        activityId: undefined,
+                    })
+                }
             >
                 {view === "month" && (
                     <span className="calendar-date">{date.getDate()}</span>
@@ -604,42 +800,13 @@ export function CalendarPage() {
                         {event.summary ?? "Busy"}
                     </p>
                 ))}
-                {meeting ?
-                    // Clicking the meeting, but not its topics or activities,
-                    // opens the class pop-up. The label button is the keyboard
-                    // route; its click bubbles up to here.
-                    <div
-                        className="calendar-meeting"
-                        onClick={(event) => {
-                            const target = event.target as Element;
-                            if (
-                                !target.closest(
-                                    ".calendar-topic, .calendar-activity",
-                                )
-                            ) {
-                                setOpenClass(key);
-                            }
-                        }}
-                    >
-                        <button
-                            type="button"
-                            className="calendar-meeting-label"
-                            aria-label={`Class meeting on ${formatLongDate(date)}`}
-                        >
-                            Class Meeting
-                        </button>
-                        <ul>{topics.map(renderTopic)}</ul>
-                        {activities}
-                        {view === "week" && dayItems.length === 0 && (
-                            <p className="calendar-placeholder">
-                                No Topics or Activities Scheduled
-                            </p>
-                        )}
-                    </div>
-                :   activities}
+                {meetings.map((meeting) =>
+                    renderMeeting(meeting, date, dayItems),
+                )}
+                {looseActivities}
                 {view === "week" &&
-                    !meeting &&
-                    activities.length === 0 &&
+                    meetings.length === 0 &&
+                    looseActivities.length === 0 &&
                     dayEvents.length === 0 && (
                         <p className="calendar-placeholder">Nothing Planned</p>
                     )}
@@ -693,7 +860,7 @@ export function CalendarPage() {
                 <label>
                     <span>Course</span>
                     <select
-                        value={course.code}
+                        value={showAll ? ALL_COURSES : course.code}
                         disabled={!hasCourse}
                         onChange={(event) => {
                             setCourseCode(event.target.value);
@@ -702,6 +869,9 @@ export function CalendarPage() {
                         }}
                     >
                         {!hasCourse && <option value="">No courses</option>}
+                        {canShowAll && (
+                            <option value={ALL_COURSES}>All Courses</option>
+                        )}
                         {courses.map((option) => (
                             <option key={option.code}>{option.code}</option>
                         ))}
@@ -767,7 +937,7 @@ export function CalendarPage() {
 
             {/* DRAFT idea 2: in the weekly view, show the week number and
                 let the user name the week. */}
-            {hasCourse && view === "week" && focusWeek !== null && (
+            {hasCourse && !showAll && view === "week" && focusWeek !== null && (
                 <div className="calendar-week-label-bar">
                     <span className="calendar-week-badge">
                         Week {focusWeek} of {weekCount}
@@ -822,7 +992,7 @@ export function CalendarPage() {
             {lastCancelled && (
                 <div className="calendar-notice" role="status">
                     <span>
-                        {course.code} class on{" "}
+                        {lastCancelled.course} class on{" "}
                         {formatLongDate(parseDateKey(lastCancelled.date))}{" "}
                         cancelled.
                     </span>
@@ -846,21 +1016,47 @@ export function CalendarPage() {
                     page to start planning.
                 </p>
             :   <div className="calendar-layout">
+                    {/* Only topics can be unscheduled; they keep their course. */}
                     <aside
                         className={`calendar-unscheduled${dropTarget === "unscheduled" ? " is-drop-target" : ""}`}
                         aria-labelledby="unscheduled-title"
-                        onDragOver={(event) => allowDrop(event, "unscheduled")}
+                        onDragOver={(event) =>
+                            draggedItem?.kind === "topic" &&
+                            allowDrop(event, "unscheduled")
+                        }
                         onDragLeave={() => setDropTarget(null)}
-                        onDrop={() => dropTopic(undefined)}
+                        onDrop={() =>
+                            draggedItem?.kind === "topic" &&
+                            dropItem({
+                                course: draggedItem.course,
+                                date: undefined,
+                                activityId: undefined,
+                            })
+                        }
                     >
                         <h3 id="unscheduled-title">Unscheduled topics</h3>
                         <p>Drag a topic onto a class meeting or activity</p>
-                        {unscheduledTopics.length > 0 ?
-                            <ul>{unscheduledTopics.map(renderTopic)}</ul>
-                        :   <p className="calendar-empty">
+                        {unscheduledTopics.length === 0 ?
+                            <p className="calendar-empty">
                                 All topics scheduled
                             </p>
-                        }
+                        : showAll ?
+                            courses.map((option) => {
+                                const topics = unscheduledTopics.filter(
+                                    (item) => item.course === option.code,
+                                );
+                                return (
+                                    topics.length > 0 && (
+                                        <div key={option.code}>
+                                            <h4 className="calendar-unscheduled-course">
+                                                {option.code}
+                                            </h4>
+                                            <ul>{topics.map(renderTopic)}</ul>
+                                        </div>
+                                    )
+                                );
+                            })
+                        :   <ul>{unscheduledTopics.map(renderTopic)}</ul>}
                         {topicDraft === null ?
                             <button
                                 type="button"
@@ -872,6 +1068,21 @@ export function CalendarPage() {
                                 className="calendar-topic-form"
                                 onSubmit={createTopic}
                             >
+                                {showAll && (
+                                    <select
+                                        aria-label="Topic course"
+                                        value={draftCourse}
+                                        onChange={(event) =>
+                                            setTopicCourse(event.target.value)
+                                        }
+                                    >
+                                        {courses.map((option) => (
+                                            <option key={option.code}>
+                                                {option.code}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                                 <input
                                     type="text"
                                     aria-label="Topic name"
@@ -988,8 +1199,8 @@ export function CalendarPage() {
 
             {openClass && (
                 <ClassMeetingDialog
-                    courseCode={course.code}
-                    date={parseDateKey(openClass)}
+                    courseCode={openClass.course}
+                    date={parseDateKey(openClass.date)}
                     topicCount={getClassTopics(openClass).length}
                     onCancelClass={() => cancelClass(openClass)}
                     onClose={() => setOpenClass(null)}
@@ -999,6 +1210,7 @@ export function CalendarPage() {
             {addingActivity && (
                 <AddActivityDialog
                     courseCode={course.code}
+                    courseCodes={visibleCourses.map((option) => option.code)}
                     initialMonth={visibleMonth}
                     onAdd={addActivity}
                     onClose={closeActivityDialog}
