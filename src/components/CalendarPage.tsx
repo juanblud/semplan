@@ -164,6 +164,11 @@ export function CalendarPage() {
             };
         });
     const [view, setView] = useState<CalendarView>("month");
+    // The week highlighted in the monthly view: the current week to start
+    // with, then the last one chosen or shown in the weekly view.
+    const [selectedWeek, setSelectedWeek] = useState<number | null>(() =>
+        getSemesterWeek(new Date(), semesters[0].start, semesters[0].end),
+    );
     // The day the calendar is centred on: its month in the monthly view, its
     // week in the weekly view.
     const [focusDate, setFocusDate] = useState(() => new Date());
@@ -278,6 +283,8 @@ export function CalendarPage() {
     const weekCount = getSemesterWeekCount(semester.start, semester.end);
     const focusWeek = getSemesterWeek(focusDate, semester.start, semester.end);
     const todayWeek = getSemesterWeek(new Date(), semester.start, semester.end);
+    // The weekly view always highlights the week it shows.
+    const highlightedWeek = view === "week" ? focusWeek : selectedWeek;
 
     function getWeekLabel(week: number | null): string {
         return (
@@ -307,9 +314,24 @@ export function CalendarPage() {
         ]);
     }
 
-    function openWeek(week: number) {
-        setFocusDate(getSemesterWeekStart(week, semester.start));
-        setView("week");
+    // The weekly view jumps to the week. The monthly view highlights it, and
+    // only changes month when the week isn't on screen, going to the month
+    // that holds most of it. Choosing the highlighted week again clears it.
+    function selectWeek(week: number) {
+        const weekStart = getSemesterWeekStart(week, semester.start);
+        if (view === "week") {
+            setFocusDate(weekStart);
+            setSelectedWeek(week);
+            return;
+        }
+        if (week === selectedWeek) {
+            setSelectedWeek(null);
+            return;
+        }
+        setSelectedWeek(week);
+        if (!grid.some((day) => toDateKey(day) === toDateKey(weekStart))) {
+            setFocusDate(addDays(weekStart, 3));
+        }
     }
 
     const unscheduledTopics = courseItems.filter(
@@ -389,15 +411,22 @@ export function CalendarPage() {
     }
 
     // Opening the weekly view on the current month starts on this week.
+    // The weekly view opens on the selected week if there is one.
     function changeView(next: CalendarView) {
         const today = new Date();
-        if (
+        if (next === "week" && view === "month" && selectedWeek !== null) {
+            setFocusDate(getSemesterWeekStart(selectedWeek, semester.start));
+        } else if (
             next === "week" &&
             view === "month" &&
             today.getFullYear() === focusDate.getFullYear() &&
             today.getMonth() === focusDate.getMonth()
         ) {
             setFocusDate(today);
+        }
+        // Leaving the weekly view keeps the week it was showing selected.
+        if (next === "month" && view === "week") {
+            setSelectedWeek(focusWeek);
         }
         setView(next);
     }
@@ -410,6 +439,10 @@ export function CalendarPage() {
         setOpenClass(null);
         setAddingActivity(false);
         const next = semesters.find((option) => option.name === name);
+        // Today's week, or nothing when today is outside the new semester.
+        setSelectedWeek(
+            next ? getSemesterWeek(new Date(), next.start, next.end) : null,
+        );
         if (next) {
             setFocusDate(parseDateKey(next.start));
         }
@@ -587,6 +620,10 @@ export function CalendarPage() {
                 date.getMonth() !== visibleMonth.getMonth() &&
                 "is-outside",
             key === todayKey && "is-today",
+            highlightedWeek !== null &&
+                getSemesterWeek(date, semester.start, semester.end) ===
+                    highlightedWeek &&
+                "is-selected-week",
             dropTarget === key && "is-drop-target",
         ]
             .filter(Boolean)
@@ -810,11 +847,9 @@ export function CalendarPage() {
                                 key={week}
                                 type="button"
                                 className={className || undefined}
-                                aria-pressed={
-                                    view === "week" && week === focusWeek
-                                }
+                                aria-pressed={week === highlightedWeek}
                                 title={label || `Week ${week}`}
-                                onClick={() => openWeek(week)}
+                                onClick={() => selectWeek(week)}
                             >
                                 <span>{week}</span>
                                 {label && <small>{label}</small>}
@@ -928,7 +963,19 @@ export function CalendarPage() {
                                         </th>
                                     )}
                                     {WEEKDAYS.map((day, index) => (
-                                        <th key={day} scope="col">
+                                        <th
+                                            key={day}
+                                            scope="col"
+                                            className={
+                                                (
+                                                    view === "week" &&
+                                                    toDateKey(grid[index]) ===
+                                                        todayKey
+                                                ) ?
+                                                    "is-today"
+                                                :   undefined
+                                            }
+                                        >
                                             {view === "month" ?
                                                 <abbr title={day}>
                                                     {day.slice(0, 3)}
@@ -957,14 +1004,18 @@ export function CalendarPage() {
                                             {view === "month" && (
                                                 <th
                                                     scope="row"
-                                                    className="calendar-week-col"
+                                                    className={`calendar-week-col${weekNumber !== null && weekNumber === highlightedWeek ? " is-selected-week" : ""}`}
                                                 >
                                                     {weekNumber !== null && (
                                                         <button
                                                             type="button"
-                                                            aria-label={`Open week ${weekNumber}`}
+                                                            aria-label={`Select week ${weekNumber}`}
+                                                            aria-pressed={
+                                                                weekNumber ===
+                                                                highlightedWeek
+                                                            }
                                                             onClick={() =>
-                                                                openWeek(
+                                                                selectWeek(
                                                                     weekNumber,
                                                                 )
                                                             }

@@ -562,6 +562,58 @@ describe("CalendarPage", () => {
         ).not.toBeInTheDocument();
     });
 
+    test("selecting a week in the monthly view highlights it without leaving the month view", async () => {
+        const user = userEvent.setup();
+        render(<CalendarPage />);
+        await showOctober2026(user);
+        const strip = screen.getByRole("navigation", {
+            name: "Semester weeks",
+        });
+
+        // Week 5 (September 27 – October 3) is already on the October grid.
+        await user.click(within(strip).getByRole("button", { name: "5" }));
+        expect(
+            screen.getByRole("heading", { name: "October 2026" }),
+        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Monthly" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
+        expect(getDay("Thursday, October 1, 2026")).toHaveClass(
+            "is-selected-week",
+        );
+        expect(getDay("Sunday, October 4, 2026")).not.toHaveClass(
+            "is-selected-week",
+        );
+
+        // Week 11 isn't, so the calendar moves to November to show it.
+        await user.click(within(strip).getByRole("button", { name: "11" }));
+        expect(
+            screen.getByRole("heading", { name: "November 2026" }),
+        ).toBeInTheDocument();
+        expect(getDay("Wednesday, November 11, 2026")).toHaveClass(
+            "is-selected-week",
+        );
+        expect(
+            screen.getByRole("button", { name: "Select week 11" }),
+        ).toHaveAttribute("aria-pressed", "true");
+
+        // The weekly view opens on the selected week.
+        await user.click(screen.getByRole("button", { name: "Weekly" }));
+        expect(
+            screen.getByRole("heading", {
+                name: "Week of: November 8–14, 2026",
+            }),
+        ).toBeInTheDocument();
+
+        // Back in the monthly view, choosing the week again clears it.
+        await user.click(screen.getByRole("button", { name: "Monthly" }));
+        await user.click(within(strip).getByRole("button", { name: "11" }));
+        expect(getDay("Wednesday, November 11, 2026")).not.toHaveClass(
+            "is-selected-week",
+        );
+    });
+
     describe("weekly view", () => {
         beforeEach(() => {
             jest.useFakeTimers({ now: new Date(2026, 9, 14) });
