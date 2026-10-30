@@ -10,6 +10,71 @@ export const semesters: Semester[] = [
     { name: "Spring 2027", start: "2027-02-08", end: "2027-05-17" },
 ];
 
+interface SemesterCourse {
+    semester: string;
+    startDate?: string;
+    endDate?: string;
+}
+
+function semesterOrderDate(term: Semester): string {
+    const year = term.name.match(/\b\d{4}\b/)?.[0];
+    const season = term.name
+        .match(/\b(winter|spring|summer|fall|autumn)\b/i)?.[0]
+        .toLowerCase();
+    const months: Record<string, string> = {
+        winter: "01",
+        spring: "03",
+        summer: "06",
+        fall: "09",
+        autumn: "09",
+    };
+    // Semester labels determine their order even if a course's dates differ.
+    return year && season ? `${year}-${months[season]}-01` : term.start;
+}
+
+// Include every saved course's term. New terms use their course date ranges,
+// falling back to the configured season's dates in the requested year.
+export function getCalendarSemesters(courses: SemesterCourse[]): Semester[] {
+    const names = new Set([
+        ...semesters.map((term) => term.name),
+        ...courses.map((course) => course.semester),
+    ]);
+    return [...names]
+        .map((name) => {
+            const configured = semesters.find((term) => term.name === name);
+            if (configured) return configured;
+            const termCourses = courses.filter(
+                (course) => course.semester === name,
+            );
+            const starts = termCourses
+                .flatMap((course) =>
+                    course.startDate ? [course.startDate] : [],
+                )
+                .sort();
+            const ends = termCourses
+                .flatMap((course) => (course.endDate ? [course.endDate] : []))
+                .sort();
+            const year =
+                name.match(/\b\d{4}\b/)?.[0] ??
+                String(new Date().getFullYear());
+            const season = name.split(" ")[0].toLowerCase();
+            const base = semesters.find(
+                (term) => term.name.split(" ")[0].toLowerCase() === season,
+            );
+            return {
+                name,
+                start:
+                    starts[0] ?? `${year}${base?.start.slice(4) ?? "-01-01"}`,
+                end: ends.at(-1) ?? `${year}${base?.end.slice(4) ?? "-12-31"}`,
+            };
+        })
+        .sort(
+            (a, b) =>
+                semesterOrderDate(a).localeCompare(semesterOrderDate(b)) ||
+                a.name.localeCompare(b.name),
+        );
+}
+
 export const calendarCourses: Course[] = [
     { code: "CISC 275", meetingDays: [1, 3, 5] },
     { code: "CISC 320", meetingDays: [2, 4] },

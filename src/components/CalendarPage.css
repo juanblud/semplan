@@ -163,20 +163,6 @@
     gap: 20px;
 }
 
-.calendar-unscheduled-course {
-    margin: 4px 0;
-    color: var(--ud-blue-dark);
-    font-size: calc(13px + var(--font-bump));
-}
-
-.calendar-activity[draggable="true"] {
-    cursor: grab;
-}
-
-.calendar-activity.is-dragging {
-    opacity: 0.5;
-}
-
 .calendar-unscheduled {
     display: flex;
     flex-direction: column;
@@ -352,11 +338,6 @@
     font-size: calc(12px + var(--font-bump));
     font-weight: 700;
     text-align: left;
-}
-
-.calendar-meeting-time {
-    display: block;
-    font-weight: 400;
 }
 
 .calendar-meeting ul:not(:empty) {

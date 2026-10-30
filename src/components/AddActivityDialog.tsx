@@ -13,14 +13,10 @@ export interface NewActivity {
     title: string;
     date: string;
     time: string;
-    course: string;
 }
 
 interface AddActivityDialogProps {
     courseCode: string;
-    // With more than one course, the dialog asks which one the activity is
-    // for, starting on courseCode.
-    courseCodes?: string[];
     // The mini calendar opens on the month the main calendar is showing, or
     // on this month if that one has already passed.
     initialMonth: Date;
@@ -32,7 +28,6 @@ const listFormat = new Intl.ListFormat("en-US", { type: "conjunction" });
 
 export function AddActivityDialog({
     courseCode,
-    courseCodes = [courseCode],
     initialMonth,
     onAdd,
     onClose,
@@ -45,7 +40,6 @@ export function AddActivityDialog({
     const [date, setDate] = useState<string | null>(null);
     const [time, setTime] = useState("");
     const [title, setTitle] = useState("");
-    const [course, setCourse] = useState(courseCode);
     const [error, setError] = useState("");
 
     const todayKey = toDateKey(new Date());
@@ -70,30 +64,15 @@ export function AddActivityDialog({
             );
             return;
         }
-        onAdd({ title: title.trim(), date, time, course });
+        onAdd({ title: title.trim(), date, time });
     }
 
     return (
         <CalendarModal labelledBy="add-activity-title" onClose={onClose}>
             <h2 id="add-activity-title">Add Activity</h2>
-            {courseCodes.length < 2 && (
-                <p className="calendar-dialog-course">{courseCode}</p>
-            )}
+            <p className="calendar-dialog-course">{courseCode}</p>
 
             <form onSubmit={submit} noValidate>
-                {courseCodes.length > 1 && (
-                    <label className="calendar-dialog-field">
-                        <span>Course</span>
-                        <select
-                            value={course}
-                            onChange={(event) => setCourse(event.target.value)}
-                        >
-                            {courseCodes.map((code) => (
-                                <option key={code}>{code}</option>
-                            ))}
-                        </select>
-                    </label>
-                )}
                 <label className="calendar-dialog-field">
                     <span>Activity name</span>
                     <input
