@@ -1,5 +1,5 @@
-/* University of Delaware palette */
-:root {
+/* Theme colors feed the shared component styles. */
+.app-shell {
     --ud-blue: #00539f;
     --ud-blue-dark: #003a70;
     --ud-navy: #002a52;
@@ -10,14 +10,21 @@
     --line: #d5deea;
     --surface: #ffffff;
     --canvas: #f3f6fa;
-}
-
-.app-shell {
-    --font-bump: 0px;
     --field: #fff;
     --soft-blue: #e3ebf5;
     --soft-gold: #fff4c2;
     --blue-fill: #00539f;
+    --sidebar-start: #003a70;
+    --sidebar-end: #002a52;
+    --accent-ink: #002a52;
+    --accent-hover: #ffdc33;
+    --panel-bg: #003a70;
+    --fill-hover: #003a70;
+    --backdrop-primary: rgb(0 83 159 / 16%);
+    --backdrop-accent: rgb(255 210 0 / 16%);
+    --backdrop-base: rgb(0 83 159 / 13%);
+    --font-bump: 0px;
+    color-scheme: light;
     font-size: calc(16px + var(--font-bump));
 }
 
@@ -25,7 +32,85 @@
     --font-bump: 3px;
 }
 
-.app-shell.is-dark {
+.app-shell.theme-black-white {
+    --ud-blue: #303030;
+    --ud-blue-dark: #242424;
+    --ud-navy: #171717;
+    --ud-gold: #d1d1d1;
+    --ud-gold-deep: #565656;
+    --ink: #202020;
+    --muted: #626262;
+    --line: #d2d2d2;
+    --surface: #fff;
+    --canvas: #f4f4f4;
+    --field: #fff;
+    --soft-blue: #ececec;
+    --soft-gold: #e8e8e8;
+    --blue-fill: #303030;
+    --sidebar-start: #303030;
+    --sidebar-end: #111;
+    --accent-ink: #171717;
+    --accent-hover: #e5e5e5;
+    --panel-bg: #303030;
+    --fill-hover: #505050;
+    --backdrop-primary: rgb(0 0 0 / 5%);
+    --backdrop-accent: rgb(0 0 0 / 3%);
+    --backdrop-base: rgb(0 0 0 / 2%);
+}
+
+.app-shell.theme-red {
+    --ud-blue: #ae1c0c;
+    --ud-blue-dark: #8c190c;
+    --ud-navy: #571c15;
+    --ud-gold: #ff6454;
+    --ud-gold-deep: #b72b1c;
+    --ink: #35211e;
+    --muted: #745c57;
+    --line: #e8cbc5;
+    --surface: #fff;
+    --canvas: #fff5f2;
+    --field: #fff;
+    --soft-blue: #ffe9e4;
+    --soft-gold: #ffe0d9;
+    --blue-fill: #ae1c0c;
+    --sidebar-start: #8c190c;
+    --sidebar-end: #4c120b;
+    --accent-ink: #38100a;
+    --accent-hover: #ff8477;
+    --panel-bg: #8c190c;
+    --fill-hover: #cb2c1a;
+    --backdrop-primary: rgb(174 28 12 / 10%);
+    --backdrop-accent: rgb(255 100 84 / 12%);
+    --backdrop-base: rgb(174 28 12 / 5%);
+}
+
+.app-shell.theme-green {
+    --ud-blue: #146c0c;
+    --ud-blue-dark: #105b0b;
+    --ud-navy: #214f1a;
+    --ud-gold: #62d838;
+    --ud-gold-deep: #237b13;
+    --ink: #243321;
+    --muted: #5b7057;
+    --line: #c9dfc4;
+    --surface: #fff;
+    --canvas: #f3faf1;
+    --field: #fff;
+    --soft-blue: #e5f5df;
+    --soft-gold: #dff5d3;
+    --blue-fill: #146c0c;
+    --sidebar-start: #105b0b;
+    --sidebar-end: #133c0f;
+    --accent-ink: #17380d;
+    --accent-hover: #83e663;
+    --panel-bg: #105b0b;
+    --fill-hover: #208b15;
+    --backdrop-primary: rgb(20 108 12 / 10%);
+    --backdrop-accent: rgb(98 216 56 / 12%);
+    --backdrop-base: rgb(20 108 12 / 5%);
+}
+
+.app-shell.theme-ud.is-dark {
     --ud-blue: #84c6ff;
     --ud-blue-dark: #a9d7ff;
     --ud-navy: #d8ebff;
@@ -38,13 +123,99 @@
     --soft-blue: #2a3e58;
     --soft-gold: #514723;
     --blue-fill: #155b9d;
+    --sidebar-start: #102c49;
+    --sidebar-end: #0a1d32;
+    --accent-ink: #102235;
+    --panel-bg: #142d4a;
+    --fill-hover: #246ea9;
+    --backdrop-primary: rgb(49 111 169 / 20%);
+    --backdrop-accent: rgb(180 140 0 / 10%);
+    --backdrop-base: transparent;
+}
+
+.app-shell.theme-black-white.is-dark {
+    --ud-blue: #e6e6e6;
+    --ud-blue-dark: #f2f2f2;
+    --ud-navy: #fff;
+    --ud-gold: #c8c8c8;
+    --ud-gold-deep: #ededed;
+    --ink: #f0f0f0;
+    --muted: #c2c2c2;
+    --line: #585858;
+    --surface: #252525;
+    --canvas: #111;
+    --field: #1b1b1b;
+    --soft-blue: #373737;
+    --soft-gold: #3e3e3e;
+    --blue-fill: #464646;
+    --sidebar-start: #1a1a1a;
+    --sidebar-end: #080808;
+    --accent-ink: #111;
+    --accent-hover: #e0e0e0;
+    --panel-bg: #333;
+    --fill-hover: #626262;
+    --backdrop-primary: rgb(255 255 255 / 5%);
+    --backdrop-accent: rgb(255 255 255 / 3%);
+    --backdrop-base: transparent;
+}
+
+.app-shell.theme-red.is-dark {
+    --ud-blue: #ff9385;
+    --ud-blue-dark: #ffb2a8;
+    --ud-navy: #ffd2cb;
+    --ud-gold: #ff7363;
+    --ud-gold-deep: #ffa99d;
+    --ink: #fae9e6;
+    --muted: #d9b7b1;
+    --line: #6d453e;
+    --surface: #30201d;
+    --canvas: #1e1210;
+    --field: #251815;
+    --soft-blue: #4b2a25;
+    --soft-gold: #553129;
+    --blue-fill: #a52b1c;
+    --sidebar-start: #45170f;
+    --sidebar-end: #250e0a;
+    --accent-ink: #2b0e09;
+    --accent-hover: #ff9488;
+    --panel-bg: #562018;
+    --fill-hover: #c13b29;
+    --backdrop-primary: rgb(255 115 99 / 10%);
+    --backdrop-accent: rgb(255 115 99 / 6%);
+    --backdrop-base: transparent;
+}
+
+.app-shell.theme-green.is-dark {
+    --ud-blue: #8be875;
+    --ud-blue-dark: #b0f29f;
+    --ud-navy: #d3f6ca;
+    --ud-gold: #70db4b;
+    --ud-gold-deep: #a1ed87;
+    --ink: #e9f7e6;
+    --muted: #bbd5b4;
+    --line: #476445;
+    --surface: #20301e;
+    --canvas: #101c10;
+    --field: #182718;
+    --soft-blue: #2b4828;
+    --soft-gold: #31502a;
+    --blue-fill: #26751f;
+    --sidebar-start: #214c1b;
+    --sidebar-end: #102c0e;
+    --accent-ink: #15340d;
+    --accent-hover: #95ed79;
+    --panel-bg: #275122;
+    --fill-hover: #338d28;
+    --backdrop-primary: rgb(112 219 75 / 10%);
+    --backdrop-accent: rgb(112 219 75 / 6%);
+    --backdrop-base: transparent;
+}
+
+.app-shell.is-dark {
     color-scheme: dark;
 }
 
-/* One shared backdrop for every page: a light blue wash with soft blue and
-   gold glows. It stays put while content scrolls, so the white cards read as
-   floating above it. The sidebar is opaque and covers the left edge. Layers
-   are listed top first. */
+/* Subtle theme-matched glows stay fixed while content scrolls. */
 .app-shell {
     display: flex;
     min-height: 100vh;
@@ -52,37 +223,19 @@
     background-image:
         radial-gradient(
             ellipse 55% 45% at 100% 0%,
-            rgb(0 83 159 / 16%),
+            var(--backdrop-primary),
             transparent 70%
         ),
         radial-gradient(
             ellipse 45% 40% at 35% 100%,
-            rgb(255 210 0 / 16%),
+            var(--backdrop-accent),
             transparent 70%
         ),
-        linear-gradient(170deg, rgb(0 83 159 / 13%), rgb(0 83 159 / 8%));
+        linear-gradient(170deg, var(--backdrop-base), transparent);
     background-attachment: fixed;
 }
 
-.app-shell.is-dark {
-    background-image:
-        radial-gradient(
-            ellipse 55% 45% at 100% 0%,
-            rgb(49 111 169 / 20%),
-            transparent 70%
-        ),
-        radial-gradient(
-            ellipse 45% 40% at 35% 100%,
-            rgb(180 140 0 / 10%),
-            transparent 70%
-        );
-}
-
-.app-shell.is-dark .sidebar {
-    background: linear-gradient(180deg, #102c49, #0a1d32);
-}
-
-.app-shell.is-dark .main-content::before {
+.app-shell.theme-ud.is-dark .main-content::before {
     opacity: 0.12;
 }
 
@@ -97,8 +250,8 @@
     border-right: 4px solid var(--ud-gold);
     background: linear-gradient(
         180deg,
-        var(--ud-blue-dark) 0%,
-        var(--ud-navy) 100%
+        var(--sidebar-start) 0%,
+        var(--sidebar-end) 100%
     );
     color: #fff;
     transition: flex-basis 180ms ease;
@@ -148,7 +301,7 @@
 
 .sidebar-toggle:hover {
     background: var(--ud-gold);
-    color: var(--ud-navy);
+    color: var(--accent-ink);
 }
 
 .sidebar-nav {
@@ -208,7 +361,7 @@
 
 .nav-link.active {
     background: var(--ud-gold);
-    color: var(--ud-navy);
+    color: var(--accent-ink);
     font-weight: 700;
 }
 
@@ -218,7 +371,7 @@
 
 .nav-link.active:hover {
     padding-left: 14px;
-    background: #ffdc33;
+    background: var(--accent-hover);
 }
 
 .nav-icon {
@@ -264,10 +417,8 @@
     color: var(--ink);
 }
 
-/* Faint scattered Blue Hens behind every page. The tile holds two staggered
-   hens drawn at 2x, so it is shown at half size. A bigger size spreads them
-   further apart; raise the opacity to make them stronger. */
-.main-content::before {
+/* The Blue Hens pattern belongs to the UD palette only. */
+.theme-ud .main-content::before {
     position: absolute;
     z-index: -1;
     inset: 0;
@@ -316,7 +467,7 @@
     border-top: 4px solid var(--ud-blue);
     border-radius: 8px;
     background: var(--surface);
-    box-shadow: 0 1px 3px rgb(0 42 82 / 8%);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .home-course-toolbar {
@@ -338,7 +489,7 @@
 .course-toolbar input,
 .create-course {
     height: 38px;
-    border: 1px solid #b9c6d6;
+    border: 1px solid var(--line);
     background: var(--field);
     color: var(--ink);
     font: inherit;
@@ -378,8 +529,8 @@
 }
 
 .create-course:disabled {
-    background: #c7d3e2;
-    color: #5a6778;
+    background: var(--soft-blue);
+    color: var(--muted);
     cursor: not-allowed;
 }
 
@@ -407,7 +558,7 @@
     border-left: 6px solid var(--ud-blue);
     border-radius: 8px;
     background: var(--surface);
-    box-shadow: 0 1px 3px rgb(0 42 82 / 8%);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
     transition:
         border-color 160ms ease,
         box-shadow 160ms ease,
@@ -416,7 +567,7 @@
 
 .course-card:hover {
     border-left-color: var(--ud-gold);
-    box-shadow: 0 6px 18px rgb(0 42 82 / 14%);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 14%);
     transform: translateY(-2px);
 }
 
@@ -464,7 +615,7 @@
 .empty-message {
     margin: 0 0 28px;
     padding: 28px;
-    border: 2px dashed #b9c6d6;
+    border: 2px dashed var(--line);
     border-radius: 8px;
     color: var(--muted);
 }
@@ -474,7 +625,7 @@
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--surface);
-    box-shadow: 0 1px 3px rgb(0 42 82 / 8%);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .todo-table {
@@ -540,7 +691,7 @@
 }
 
 .todo-item input:checked + span {
-    color: #8a96a6;
+    color: var(--muted);
     text-decoration: line-through;
 }
 
@@ -606,7 +757,7 @@
     border-top: 4px solid var(--ud-gold);
     border-radius: 10px;
     background: var(--surface);
-    box-shadow: 0 8px 24px rgb(0 42 82 / 10%);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
 }
 
 .note-editor label {
@@ -619,7 +770,7 @@
 .note-editor textarea {
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid #b9c6d6;
+    border: 1px solid var(--line);
     border-radius: 6px;
     background: var(--field);
     color: var(--ink);
@@ -665,8 +816,8 @@
 }
 
 .save-note-button:disabled {
-    background: #c7d3e2;
-    color: #5a6778;
+    background: var(--soft-blue);
+    color: var(--muted);
     cursor: not-allowed;
 }
 
@@ -683,7 +834,7 @@
 .notes-toolbar select {
     min-height: 36px;
     padding: 5px 10px;
-    border: 1px solid #b9c6d6;
+    border: 1px solid var(--line);
     border-radius: 6px;
     background: var(--surface);
     color: var(--ink);
@@ -706,7 +857,7 @@
     border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--surface);
-    box-shadow: 0 2px 7px rgb(0 42 82 / 7%);
+    box-shadow: 0 2px 7px rgb(0 0 0 / 7%);
 }
 
 .note-card > h2 {
@@ -805,7 +956,7 @@
 }
 
 .note-card-actions button:hover {
-    background: #eaf2fa;
+    background: var(--soft-blue);
 }
 
 .notes-empty-state {
@@ -814,7 +965,7 @@
     align-items: center;
     justify-content: center;
     min-height: 300px;
-    border: 2px dashed #cbd7e5;
+    border: 2px dashed var(--line);
     border-radius: 12px;
     color: var(--muted);
     text-align: center;
@@ -826,7 +977,7 @@
     height: 58px;
     place-items: center;
     border-radius: 16px;
-    background: #e6eff9;
+    background: var(--soft-blue);
     color: var(--ud-blue);
     font-size: calc(35px + var(--font-bump));
 }
@@ -859,7 +1010,7 @@ textarea:focus-visible {
     margin: 0 auto;
     padding: 28px;
     border-radius: 10px;
-    background: var(--ud-blue-dark);
+    background: var(--panel-bg);
     color: #fff;
 }
 
@@ -1009,7 +1160,7 @@ textarea:focus-visible {
     border-top: 4px solid var(--ud-gold);
     border-radius: 10px;
     background: var(--surface);
-    box-shadow: 0 2px 8px rgb(0 42 82 / 10%);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .settings-card h2 {
@@ -1026,6 +1177,7 @@ textarea:focus-visible {
 
 .settings-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 24px;
@@ -1050,6 +1202,20 @@ textarea:focus-visible {
 .settings-row small {
     color: var(--muted);
     font-size: calc(15px + var(--font-bump));
+}
+
+.settings-select {
+    width: min(100%, 235px);
+    max-width: 100%;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--field);
+    color: var(--ink);
+    font: inherit;
+    font-size: calc(16px + var(--font-bump));
+    cursor: pointer;
 }
 
 .settings-switch {
@@ -1122,10 +1288,6 @@ textarea:focus-visible {
     background: #fff;
 }
 
-.is-dark .task-panel {
-    background: #142d4a;
-}
-
 .is-dark .task-row {
     color: var(--ink);
 }
@@ -1147,26 +1309,26 @@ textarea:focus-visible {
 
 .is-dark .add-note-button:hover,
 .is-dark .save-note-button:hover:not(:disabled) {
-    background: #246ea9;
+    background: var(--fill-hover);
 }
 
 .is-dark .nav-link.active,
 .is-dark .sidebar-toggle:hover {
-    color: #102235;
+    color: var(--accent-ink);
 }
 
 .is-dark .calendar-grid.is-week .calendar-day.is-today {
-    background: #35412d;
+    background: var(--soft-gold);
 }
 
 .is-dark .calendar-day.is-today .calendar-date {
-    color: #102235;
+    color: var(--accent-ink);
 }
 
 .is-dark .calendar-event,
 .is-dark .calendar-notice {
     background: var(--soft-gold);
-    color: #fff2bd;
+    color: var(--ink);
 }
 
 .is-dark .calendar-dialog-error,
@@ -1187,7 +1349,7 @@ textarea:focus-visible {
     border-top: 5px solid var(--ud-gold);
     border-radius: 12px;
     background: var(--surface);
-    box-shadow: 0 20px 50px rgb(0 42 82 / 35%);
+    box-shadow: 0 20px 50px rgb(0 0 0 / 35%);
     color: var(--ink);
     font: inherit;
 }
