@@ -367,9 +367,20 @@ describe("App", () => {
 
         await user.click(screen.getByRole("link", { name: "Settings" }));
         expect(window.location.pathname).toBe("/Settings");
+        const colorScheme = screen.getByRole("combobox", {
+            name: "Color scheme",
+        });
+        expect(colorScheme).toHaveValue("ud");
+        for (const scheme of ["black-white", "red", "green"] as const) {
+            await user.selectOptions(colorScheme, scheme);
+            expect(document.querySelector(".app-shell")).toHaveClass(
+                `theme-${scheme}`,
+            );
+        }
         await user.click(screen.getByRole("checkbox", { name: /Dark Mode/ }));
         await user.click(screen.getByRole("checkbox", { name: /Large Font/ }));
         expect(document.querySelector(".app-shell")).toHaveClass(
+            "theme-green",
             "is-dark",
             "is-large-font",
         );
@@ -393,9 +404,13 @@ describe("App", () => {
             screen.queryByRole("link", { name: "Task View" }),
         ).not.toBeInTheDocument();
         expect(document.querySelector(".app-shell")).toHaveClass(
+            "theme-green",
             "is-dark",
             "is-large-font",
         );
+        expect(
+            JSON.parse(localStorage.getItem("semplan:settings") ?? "{}"),
+        ).toMatchObject({ colorScheme: "green", darkMode: true });
 
         await user.click(screen.getByRole("link", { name: "Settings" }));
         await user.click(screen.getByRole("button", { name: "Student" }));
@@ -407,6 +422,24 @@ describe("App", () => {
             "Task View",
         );
         restored.unmount();
+    });
+
+    test("uses the UD scheme for saved settings without a valid scheme", () => {
+        localStorage.setItem(
+            "semplan:settings",
+            JSON.stringify({
+                darkMode: true,
+                colorScheme: "unknown",
+                role: "student",
+                roleSelected: true,
+            }),
+        );
+        render(<App />);
+
+        expect(document.querySelector(".app-shell")).toHaveClass(
+            "theme-ud",
+            "is-dark",
+        );
     });
 
     test("falls back to Home for unknown URLs", () => {

@@ -87,7 +87,7 @@
     min-width: 0;
     height: 40px;
     padding: 8px;
-    border: 1px solid #b9c6d6;
+    border: 1px solid var(--line);
     border-radius: 5px;
     font: inherit;
 }

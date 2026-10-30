@@ -1,9 +1,11 @@
 import type { Dispatch, SetStateAction } from "react";
 
 export type Role = "professor" | "student";
+export type ColorScheme = "ud" | "black-white" | "red" | "green";
 
 export interface Settings {
     darkMode: boolean;
+    colorScheme: ColorScheme;
     largeFont: boolean;
     role: Role;
     roleSelected: boolean;
@@ -26,6 +28,26 @@ export function SettingsPage({ settings, onChange }: SettingsPageProps) {
                 aria-labelledby="accessibility-title"
             >
                 <h2 id="accessibility-title">Accessibility</h2>
+                <label className="settings-row">
+                    <span>
+                        <strong>Color scheme</strong>
+                    </span>
+                    <select
+                        className="settings-select"
+                        value={settings.colorScheme}
+                        onChange={(event) =>
+                            onChange((current) => ({
+                                ...current,
+                                colorScheme: event.target.value as ColorScheme,
+                            }))
+                        }
+                    >
+                        <option value="ud">UD blue and gold</option>
+                        <option value="black-white">Black and white</option>
+                        <option value="red">Red</option>
+                        <option value="green">Green</option>
+                    </select>
+                </label>
                 <label className="settings-row">
                     <span>
                         <strong>Dark Mode</strong>
