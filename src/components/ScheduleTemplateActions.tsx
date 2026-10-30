@@ -5,7 +5,7 @@ import {
     courseKey,
     loadCalendarItems,
     loadSaved,
-    semesters,
+    getCalendarSemesters,
 } from "./calendarStorage";
 import { TEMPLATE_KEY } from "./savedTemplates";
 import type { SavedTemplate } from "./savedTemplates";
@@ -32,7 +32,9 @@ export function ScheduleTemplateActions({
 
     function saveTemplate() {
         setError("");
-        const term = semesters.find((term) => term.name === semester);
+        const term = getCalendarSemesters([{ semester, ...details }]).find(
+            (term) => term.name === semester,
+        );
         const course = calendarCourses.find(
             (course) => normalize(course.code) === normalize(code),
         );

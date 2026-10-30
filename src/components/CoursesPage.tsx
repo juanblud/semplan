@@ -7,13 +7,16 @@ import type { SavedTemplate } from "./savedTemplates";
 import {
     loadSaved,
     loadCalendarItems,
-    semesters as calendarSemesters,
+    getCalendarSemesters,
     CANCELLED_KEY,
     ITEMS_KEY,
     courseKey,
 } from "./calendarStorage";
 import { copySchedule } from "./scheduleTemplate";
 import { ScheduleTemplateActions } from "./ScheduleTemplateActions";
+import { MeetingScheduleFields } from "./MeetingScheduleFields";
+import type { MeetingSchedule, MeetingTime } from "./MeetingScheduleFields";
+import { parseDateKey } from "./calendarDates";
 
 export interface Course {
     id: string;
@@ -25,6 +28,8 @@ export interface Course {
     schedule: string;
     location: string;
     color: string;
+    startDate?: string;
+    endDate?: string;
 }
 export interface CalendarCourseSelection {
     code: string;
@@ -59,6 +64,31 @@ const initialCourses: Course[] = [
 ];
 function normalize(value: string) {
     return value.toLowerCase().replace(/\s/g, "");
+}
+function parseMeetingSchedule(schedule: string): MeetingSchedule {
+    const times = schedule.match(
+        /([1-9]|1[0-2]):([0-5][0-9])(?: (AM|PM))? - ([1-9]|1[0-2]):([0-5][0-9]) (AM|PM)$/,
+    );
+    return {
+        days: schedule.match(/\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/g) ?? [],
+        start: {
+            hour: times?.[1] ?? "",
+            minute: times?.[2] ?? "",
+            period: times?.[3] ?? times?.[6] ?? "",
+        },
+        end: {
+            hour: times?.[4] ?? "",
+            minute: times?.[5] ?? "",
+            period: times?.[6] ?? "",
+        },
+    };
+}
+function timeInMinutes(time: MeetingTime) {
+    return (
+        (Number(time.hour) % 12) * 60 +
+        Number(time.minute) +
+        (time.period === "PM" ? 720 : 0)
+    );
 }
 // The calendar reads the same saved courses so sections remain separate there.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -132,6 +162,7 @@ export function CoursesPage({
         () => sharedCourses ?? loadCourses(),
     );
     const courses = sharedCourses ?? localCourses;
+    const calendarSemesters = getCalendarSemesters(courses);
     function setCourses(next: Course[]) {
         setLocalCourses(next);
         onCoursesChange?.(next);
@@ -139,6 +170,7 @@ export function CoursesPage({
     const [semester, setSemester] = useState("Fall 2026");
     const [search, setSearch] = useState("");
     const [draft, setDraft] = useState<Course | null>(null);
+    const [meeting, setMeeting] = useState(() => parseMeetingSchedule(""));
     const [savedTemplates, setSavedTemplates] = useState(() =>
         loadSaved<SavedTemplate>(TEMPLATE_KEY, []),
     );
@@ -149,13 +181,7 @@ export function CoursesPage({
     const [error, setError] = useState("");
     const [storageError, setStorageError] = useState("");
     const dialog = useRef<HTMLDialogElement>(null);
-    const semesters = Array.from(
-        new Set([
-            "Fall 2026",
-            "Spring 2027",
-            ...courses.map((course) => course.semester),
-        ]),
-    ).sort();
+    const semesters = calendarSemesters.map((term) => term.name);
     function updateCourses(update: (current: Course[]) => Course[]): boolean {
         const next = update(courses);
         setCourses(next);
@@ -179,6 +205,11 @@ export function CoursesPage({
         setSelectedTemplate("");
         setDeleting(null);
         setDeletingTemplate(null);
+        setError("");
+    }
+    function openDraft(course: Course) {
+        setDraft(course);
+        setMeeting(parseMeetingSchedule(course.schedule));
         setError("");
     }
     function deleteTemplate() {
@@ -213,7 +244,7 @@ export function CoursesPage({
         setSavedTemplates(templates);
         setSelectedTemplate(template ? String(templateIndex) : "");
         setError("");
-        setDraft({
+        openDraft({
             id: crypto.randomUUID(),
             code: template?.course ?? "",
             section:
@@ -242,6 +273,32 @@ export function CoursesPage({
             (event.nativeEvent as SubmitEvent).submitter?.getAttribute(
                 "name",
             ) === "planInCalendar";
+        const timeParts = [
+            meeting.start.hour,
+            meeting.start.minute,
+            meeting.start.period,
+            meeting.end.hour,
+            meeting.end.minute,
+            meeting.end.period,
+        ];
+        const hasMeeting = meeting.days.length > 0 || timeParts.some(Boolean);
+        if (hasMeeting && (!meeting.days.length || !timeParts.every(Boolean))) {
+            setError(
+                "Choose at least one meeting day and a complete start and end time.",
+            );
+            return;
+        }
+        if (
+            hasMeeting &&
+            timeInMinutes(meeting.end) <= timeInMinutes(meeting.start)
+        ) {
+            setError("End time must be later than start time.");
+            return;
+        }
+        const schedule =
+            hasMeeting ?
+                `${meeting.days.join(" / ")} ${meeting.start.hour}:${meeting.start.minute} ${meeting.start.period} - ${meeting.end.hour}:${meeting.end.minute} ${meeting.end.period}`
+            :   "";
         const cleaned = {
             ...draft,
             code: draft.code.trim(),
@@ -249,7 +306,7 @@ export function CoursesPage({
             title: draft.title.trim(),
             semester: draft.semester.trim(),
             instructor: draft.instructor.trim(),
-            schedule: draft.schedule.trim(),
+            schedule,
             location: draft.location.trim(),
         };
         if (!cleaned.code || !cleaned.title || !cleaned.semester) {
@@ -260,31 +317,19 @@ export function CoursesPage({
             setError("Section must be exactly three digits, such as 010.");
             return;
         }
-        if (
-            planInCalendar &&
-            !calendarSemesters.some((term) => term.name === cleaned.semester)
-        ) {
+        if (Boolean(cleaned.startDate) !== Boolean(cleaned.endDate)) {
             setError(
-                "Choose Fall 2026 or Spring 2027 to plan in Calendar View.",
+                "Choose both a start date and an end date, or leave both blank.",
             );
             return;
         }
-        if (cleaned.schedule) {
-            const day = "(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)";
-            const time = "(?:[1-9]|1[0-2]):[0-5][0-9]";
-            const format = new RegExp(
-                `^${day}(?: / ${day}){0,2} ${time}(?: (?:AM|PM))? - ${time} (?:AM|PM)$`,
-            );
-            const days = cleaned.schedule.split(/ \d/)[0].split(" / ");
-            if (
-                !format.test(cleaned.schedule) ||
-                new Set(days).size !== days.length
-            ) {
-                setError(
-                    "Enter Meets as Mon / Wed / Fri 1:50 PM - 2:45 PM. Use 1–3 different abbreviated days separated by /, and put uppercase AM or PM after both 12-hour times.",
-                );
-                return;
-            }
+        if (
+            cleaned.startDate &&
+            cleaned.endDate &&
+            cleaned.endDate < cleaned.startDate
+        ) {
+            setError("End date must be on or after the start date.");
+            return;
         }
         if (
             courses.some(
@@ -302,13 +347,11 @@ export function CoursesPage({
         }
         if (selectedTemplate !== "") {
             const template = savedTemplates[Number(selectedTemplate)];
-            const target = calendarSemesters.find(
+            const target = getCalendarSemesters([...courses, cleaned]).find(
                 (term) => term.name === cleaned.semester,
             );
             if (!target) {
-                setError(
-                    "Choose a destination semester with calendar dates: Fall 2026 or Spring 2027.",
-                );
+                setError("Enter a destination semester and its course dates.");
                 return;
             }
             const items = loadCalendarItems();
@@ -481,10 +524,21 @@ export function CoursesPage({
                                     <dd>{course.instructor || "Not added"}</dd>
                                 </div>
                                 <div>
-                                    <dt>Meets</dt>
+                                    <dt>Meets on</dt>
                                     <dd>
                                         {course.schedule ||
                                             "Schedule not added"}
+                                        {course.startDate && course.endDate && (
+                                            <span className="course-meeting-dates">
+                                                {parseDateKey(
+                                                    course.startDate,
+                                                ).toLocaleDateString()}
+                                                {" – "}
+                                                {parseDateKey(
+                                                    course.endDate,
+                                                ).toLocaleDateString()}
+                                            </span>
+                                        )}
                                     </dd>
                                 </div>
                                 <div>
@@ -514,6 +568,8 @@ export function CoursesPage({
                                     schedule: course.schedule,
                                     location: course.location,
                                     color: course.color,
+                                    startDate: course.startDate,
+                                    endDate: course.endDate,
                                 }}
                                 semester={course.semester}
                                 onSaved={() =>
@@ -529,7 +585,7 @@ export function CoursesPage({
                                 <button
                                     type="button"
                                     aria-label={`Edit ${courseKey(course.code, course.section)}`}
-                                    onClick={() => setDraft({ ...course })}
+                                    onClick={() => openDraft({ ...course })}
                                 >
                                     Edit course
                                 </button>
@@ -655,7 +711,7 @@ export function CoursesPage({
                                                             template.semester
                                                                 .name,
                                                 );
-                                                setDraft({
+                                                openDraft({
                                                     ...draft,
                                                     ...(template.details ??
                                                         (source ?
@@ -673,6 +729,8 @@ export function CoursesPage({
                                                             }
                                                         :   {})),
                                                     code: template.course,
+                                                    startDate: draft.startDate,
+                                                    endDate: draft.endDate,
                                                     section:
                                                         template.section ??
                                                         template.details
@@ -725,11 +783,6 @@ export function CoursesPage({
                                         "Instructor(s)",
                                         "Instructor name(s)",
                                     ],
-                                    [
-                                        "schedule",
-                                        "Meets",
-                                        "Mon / Wed / Fri 1:50 PM - 2:45 PM",
-                                    ],
                                     ["location", "Location", "Gore Hall 103"],
                                 ] as const
                             ).map(([key, label, placeholder]) => (
@@ -752,35 +805,13 @@ export function CoursesPage({
                                         maxLength={160}
                                         value={draft[key]}
                                         placeholder={placeholder}
-                                        aria-label={
-                                            key === "schedule" ? "Meets" : (
-                                                undefined
-                                            )
-                                        }
-                                        aria-describedby={
-                                            key === "schedule" ?
-                                                "meeting-format-help"
-                                            :   undefined
-                                        }
                                         onChange={(event) => {
                                             setDraft({
                                                 ...draft,
                                                 [key]: event.target.value,
                                             });
-                                            if (key === "schedule")
-                                                setError("");
                                         }}
                                     />
-                                    {key === "schedule" && (
-                                        <span id="meeting-format-help">
-                                            Example: Mon / Wed / Fri 1:50 PM -
-                                            2:45 PM. Use 1–3 different days:
-                                            Mon, Tue, Wed, Thu, Fri, Sat, Sun.
-                                            Separate days with “ / ” and times
-                                            with “ - ”. Use uppercase AM or PM
-                                            after each time.
-                                        </span>
-                                    )}
                                 </label>
                             ))}
                             <label>
@@ -813,6 +844,59 @@ export function CoursesPage({
                                     }
                                 />
                             </label>
+                            <MeetingScheduleFields
+                                value={meeting}
+                                onChange={(value) => {
+                                    setMeeting(value);
+                                    setError("");
+                                }}
+                                onClear={() => {
+                                    setMeeting(parseMeetingSchedule(""));
+                                    setDraft({
+                                        ...draft,
+                                        startDate: "",
+                                        endDate: "",
+                                    });
+                                    setError("");
+                                }}
+                            >
+                                <div className="course-date-inputs">
+                                    <label>
+                                        Start date
+                                        <input
+                                            type="date"
+                                            value={draft.startDate ?? ""}
+                                            max={draft.endDate || undefined}
+                                            onChange={(event) => {
+                                                setDraft({
+                                                    ...draft,
+                                                    startDate:
+                                                        event.target.value,
+                                                });
+                                                setError("");
+                                            }}
+                                        />
+                                    </label>
+                                    <label>
+                                        End date
+                                        <input
+                                            type="date"
+                                            value={draft.endDate ?? ""}
+                                            min={draft.startDate || undefined}
+                                            onChange={(event) => {
+                                                setDraft({
+                                                    ...draft,
+                                                    endDate: event.target.value,
+                                                });
+                                                setError("");
+                                            }}
+                                        />
+                                    </label>
+                                </div>
+                                <p className="meeting-date-help">
+                                    Leave dates blank to use semester dates.
+                                </p>
+                            </MeetingScheduleFields>
                         </div>
                         {error && (
                             <p role="alert" className="course-error">

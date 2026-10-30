@@ -34,6 +34,12 @@
 .course-facts dd {
     margin: 0;
 }
+.course-meeting-dates {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: calc(13px + var(--font-bump));
+}
 .course-task-summary {
     padding: 14px 0;
     border-top: 1px solid var(--line);
@@ -93,6 +99,108 @@
 }
 .course-form-fields input[type="color"] {
     padding: 3px;
+    cursor: pointer;
+}
+.meeting-schedule {
+    grid-column: 1 / -1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.meeting-schedule legend {
+    padding: 0;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 600;
+}
+.meeting-schedule > p {
+    margin: 4px 0 10px;
+    font-size: calc(12px + var(--font-bump));
+}
+.meeting-days,
+.meeting-time {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.meeting-days legend,
+.meeting-time legend {
+    margin-bottom: 6px;
+    font-size: calc(12px + var(--font-bump));
+}
+.meeting-day-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+}
+.meeting-day-options label {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    font-size: calc(13px + var(--font-bump));
+    font-weight: 400;
+    cursor: pointer;
+}
+.meeting-day-options input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: var(--ud-blue);
+    cursor: pointer;
+}
+.meeting-times {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-top: 12px;
+}
+.meeting-time-selects {
+    display: grid;
+    grid-template-columns: 54px 54px 64px;
+    gap: 4px;
+}
+.meeting-time-selects label {
+    gap: 3px;
+    font-size: calc(12px + var(--font-bump));
+    font-weight: 400;
+}
+.meeting-time-selects select {
+    height: 28px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: calc(13px + var(--font-bump));
+}
+.course-date-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-top: 12px;
+}
+.meeting-schedule > .meeting-date-help {
+    margin: 6px 0 0;
+}
+.course-date-inputs label {
+    gap: 3px;
+    font-size: calc(12px + var(--font-bump));
+    font-weight: 400;
+}
+.course-date-inputs input {
+    width: 156px;
+    height: 28px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: calc(13px + var(--font-bump));
+}
+.meeting-clear {
+    margin-top: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ud-blue);
+    font: inherit;
+    font-size: calc(12px + var(--font-bump));
+    text-decoration: underline;
     cursor: pointer;
 }
 .course-dialog-actions {

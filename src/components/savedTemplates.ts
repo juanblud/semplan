@@ -14,6 +14,8 @@ export interface SavedTemplate {
         schedule: string;
         location: string;
         color: string;
+        startDate?: string;
+        endDate?: string;
     };
 }
 

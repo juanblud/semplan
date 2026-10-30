@@ -11,8 +11,8 @@ import {
     ITEMS_KEY,
     loadCalendarItems,
     loadSaved,
-    semesters,
     WEEK_LABELS_KEY,
+    getCalendarSemesters,
 } from "./calendarStorage";
 import type { WeekLabel } from "./calendarStorage";
 import type { CalendarItem } from "./scheduleTemplate";
@@ -34,6 +34,8 @@ import {
 interface Course {
     code: string;
     meetingDays: number[];
+    startDate?: string;
+    endDate?: string;
 }
 
 interface GoogleCalendarEvent {
@@ -130,6 +132,7 @@ function getEventDateKeys(event: GoogleCalendarEvent): string[] {
 
 export function CalendarPage() {
     const [savedCourses] = useState(loadCourses);
+    const semesters = getCalendarSemesters(savedCourses);
     const [semesterName, setSemesterName] = useState(semesters[0].name);
     const [courseCode, setCourseCode] = useState("");
     const courses: Course[] = savedCourses
@@ -146,6 +149,8 @@ export function CalendarPage() {
             );
             return {
                 code: courseKey(course.code, course.section),
+                startDate: course.startDate,
+                endDate: course.endDate,
                 meetingDays:
                     meetingDays ?
                         [
@@ -315,8 +320,8 @@ export function CalendarPage() {
         const key = toDateKey(date);
         return (
             hasCourse &&
-            key >= semester.start &&
-            key <= semester.end &&
+            key >= (course.startDate || semester.start) &&
+            key <= (course.endDate || semester.end) &&
             course.meetingDays.includes(date.getDay()) &&
             !cancelledClasses.includes(classKey(course.code, key))
         );
