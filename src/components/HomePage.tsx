@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Task } from "../tasks";
 import type { Course } from "./CoursesPage";
+import { getCalendarSemesters } from "./calendarStorage";
 
 interface HomePageProps {
     courses: Course[];
@@ -35,13 +36,7 @@ export function HomePage({
     const todayTasks = tasks.filter((task) => task.date === today);
 
     const normalizedSearch = normalizeSearchText(search);
-    const semesters = Array.from(
-        new Set([
-            "Fall 2026",
-            "Spring 2027",
-            ...courses.map((course) => course.semester),
-        ]),
-    ).sort();
+    const semesters = getCalendarSemesters(courses).map((term) => term.name);
     const visibleCourses = courses.filter(
         (course) =>
             course.semester === semester &&

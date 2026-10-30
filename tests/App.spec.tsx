@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { App } from "../src/App";
+import { loadCourses } from "../src/components/CoursesPage";
 
 describe("App", () => {
     beforeAll(() => {
@@ -248,6 +249,56 @@ describe("App", () => {
         ).not.toBeInTheDocument();
     });
 
+    test.each(["Home", "Courses", "Calendar"])(
+        "%s lists semesters chronologically by year and season",
+        (page) => {
+            const base = loadCourses()[0];
+            const names = [
+                "Fall 2028",
+                "Summer 2027",
+                "Winter 2027",
+                "Fall 2027",
+                "Spring 2028",
+                "Fall 2025",
+                "Spring 2027",
+                "Fall 2027",
+            ];
+            localStorage.setItem(
+                "semester-planner-courses-v1",
+                JSON.stringify(
+                    names.map((semester, index) => ({
+                        ...base,
+                        id: `course-${index}`,
+                        section: String(index).padStart(3, "0"),
+                        semester,
+                        // A course's dates must not move Fall 2027 ahead of Spring 2027.
+                        startDate: "2026-10-21",
+                        endDate: "2026-12-24",
+                    })),
+                ),
+            );
+            window.history.replaceState(null, "", `/${page}`);
+            render(<App />);
+            const dropdown = screen.getByRole("combobox", { name: "Semester" });
+            expect(
+                within(dropdown)
+                    .getAllByRole("option")
+                    .map((option) => option.textContent),
+            ).toEqual([
+                "Fall 2025",
+                "Fall 2026",
+                "Winter 2027",
+                "Spring 2027",
+                "Summer 2027",
+                "Fall 2027",
+                "Spring 2028",
+                "Fall 2028",
+            ]);
+            fireEvent.change(dropdown, { target: { value: "Fall 2027" } });
+            expect(dropdown).toHaveValue("Fall 2027");
+        },
+    );
+
     test("Home displays saved sections and semesters from the Courses list", async () => {
         const user = userEvent.setup();
         const course = {
@@ -490,9 +541,18 @@ describe("App", () => {
         await user.click(screen.getByRole("button", { name: "Save course" }));
 
         await user.click(screen.getByRole("button", { name: "Edit MATH 241" }));
-        fireEvent.change(screen.getByLabelText("Meets"), {
-            target: { value: "Tue / Thu 9:00 - 10:15 AM" },
-        });
+        await user.click(screen.getByRole("checkbox", { name: "Tue" }));
+        await user.click(screen.getByRole("checkbox", { name: "Thu" }));
+        for (const [label, value] of [
+            ["Start time hour", "9"],
+            ["Start time minute", "00"],
+            ["Start time am/pm", "AM"],
+            ["End time hour", "10"],
+            ["End time minute", "15"],
+            ["End time am/pm", "AM"],
+        ]) {
+            await user.selectOptions(screen.getByLabelText(label), value);
+        }
         await user.click(
             screen.getByRole("button", { name: "Plan in Calender View" }),
         );
@@ -505,7 +565,7 @@ describe("App", () => {
             "Fall 2026",
         );
         expect(localStorage.getItem("semester-planner-courses-v1")).toContain(
-            "Tue / Thu 9:00 - 10:15 AM",
+            "Tue / Thu 9:00 AM - 10:15 AM",
         );
         const semester = screen.getByRole("combobox", { name: "Semester" });
         await user.selectOptions(semester, "Spring 2027");
@@ -525,6 +585,43 @@ describe("App", () => {
                 screen.getByRole("cell", { name: "Monday, October 12, 2026" }),
             ).queryByText("Class Meeting"),
         ).not.toBeInTheDocument();
+    });
+
+    test("a newly created semester is available in Calendar and after reloading", async () => {
+        const user = userEvent.setup();
+        window.history.replaceState(null, "", "/Courses");
+        const view = render(<App />);
+        await user.click(screen.getByRole("button", { name: "Create Course" }));
+        fireEvent.change(screen.getByLabelText("Course code *"), {
+            target: { value: "MATH 241" },
+        });
+        fireEvent.change(screen.getByLabelText("Course name *"), {
+            target: { value: "Calculus" },
+        });
+        fireEvent.change(screen.getByLabelText("Semester *"), {
+            target: { value: "Fall 2027" },
+        });
+        await user.click(screen.getByRole("button", { name: "Save course" }));
+        await user.click(screen.getByRole("link", { name: "Calendar" }));
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Fall 2027",
+        );
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "MATH 241",
+        );
+        expect(
+            screen.getByRole("heading", { name: "September 2027" }),
+        ).toBeInTheDocument();
+        view.unmount();
+        render(<App />);
+        await user.selectOptions(
+            screen.getByRole("combobox", { name: "Semester" }),
+            "Fall 2027",
+        );
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "MATH 241",
+        );
     });
 
     test("renders the sidebar and home layout", () => {

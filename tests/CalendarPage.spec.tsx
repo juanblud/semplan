@@ -24,6 +24,105 @@ describe("CalendarPage", () => {
         localStorage.clear();
     });
 
+    test.each([
+        {
+            semester: "Fall 2027",
+            startDate: "2027-10-04",
+            endDate: "2027-10-08",
+            month: "October 2027",
+            meeting: "Monday, October 4, 2027",
+        },
+        {
+            semester: "Fall 2027",
+            month: "September 2027",
+            meeting: "Wednesday, September 1, 2027",
+        },
+        {
+            semester: "Spring 2028",
+            month: "February 2028",
+            meeting: "Wednesday, February 9, 2028",
+        },
+    ])(
+        "includes saved $semester courses in the semester dropdown ($month)",
+        async ({ semester, startDate, endDate, month, meeting }) => {
+            const user = userEvent.setup();
+            const course = {
+                ...loadCourses()[0],
+                semester,
+                startDate,
+                endDate,
+                schedule: "Mon / Wed / Fri 1:50 PM - 2:45 PM",
+            };
+            localStorage.setItem(
+                "semester-planner-courses-v1",
+                JSON.stringify([
+                    course,
+                    { ...course, id: "other-section", section: "010" },
+                ]),
+            );
+            render(<CalendarPage />);
+            const semesters = screen.getByRole("combobox", {
+                name: "Semester",
+            });
+            expect(
+                within(semesters).getAllByRole("option", { name: semester }),
+            ).toHaveLength(1);
+            expect(
+                within(semesters).getByRole("option", { name: "Fall 2026" }),
+            ).toBeInTheDocument();
+            expect(
+                within(semesters).getByRole("option", { name: "Spring 2027" }),
+            ).toBeInTheDocument();
+            await user.selectOptions(semesters, semester);
+            expect(
+                screen.getByRole("heading", { name: month }),
+            ).toBeInTheDocument();
+            expect(
+                screen.getByRole("combobox", { name: "Course" }),
+            ).toHaveValue("CISC 275");
+            expect(
+                within(getDay(meeting)).getByText("Class Meeting"),
+            ).toBeInTheDocument();
+            expect(
+                screen.getByRole("button", { name: "+ Add Activity" }),
+            ).toBeEnabled();
+        },
+    );
+
+    test("limits recurring class meetings to the inclusive course date range", async () => {
+        const user = userEvent.setup();
+        localStorage.setItem(
+            "semester-planner-courses-v1",
+            JSON.stringify([
+                {
+                    ...loadCourses()[0],
+                    schedule: "Mon / Wed / Fri 1:50 PM - 2:45 PM",
+                    startDate: "2026-10-12",
+                    endDate: "2026-10-16",
+                },
+            ]),
+        );
+        render(<CalendarPage />);
+        await showOctober2026(user);
+        for (const date of [
+            "Monday, October 12, 2026",
+            "Wednesday, October 14, 2026",
+            "Friday, October 16, 2026",
+        ]) {
+            expect(
+                within(getDay(date)).getByText("Class Meeting"),
+            ).toBeInTheDocument();
+        }
+        for (const date of [
+            "Friday, October 9, 2026",
+            "Monday, October 19, 2026",
+        ]) {
+            expect(
+                within(getDay(date)).queryByText("Class Meeting"),
+            ).not.toBeInTheDocument();
+        }
+    });
+
     test("keeps created topics after the page reloads", async () => {
         const user = userEvent.setup();
         const { unmount } = render(<CalendarPage />);

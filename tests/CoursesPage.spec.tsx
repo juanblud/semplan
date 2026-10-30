@@ -178,6 +178,88 @@ test("rejects a section that is not exactly three digits", () => {
     ).not.toBeInTheDocument();
 });
 
+test.each([
+    ["2026-09-01", "2026-12-14"],
+    ["2026-10-12", "2026-10-12"],
+])(
+    "creates and restores the course date range %s to %s",
+    (startDate, endDate) => {
+        const view = render(<CoursesPage />);
+        fireEvent.click(screen.getByRole("button", { name: "Create Course" }));
+        const meetingFields = screen.getByRole("group", { name: "Meets on" });
+        expect(
+            within(meetingFields).getByLabelText("Start date"),
+        ).toBeInTheDocument();
+        expect(
+            within(meetingFields).getByLabelText("End date"),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole("group", { name: "Course dates" }),
+        ).not.toBeInTheDocument();
+        fireEvent.change(screen.getByLabelText("Course code *"), {
+            target: { value: "MATH 241" },
+        });
+        fireEvent.change(screen.getByLabelText("Course name *"), {
+            target: { value: "Calculus" },
+        });
+        fireEvent.change(screen.getByLabelText("Start date"), {
+            target: { value: startDate },
+        });
+        fireEvent.change(screen.getByLabelText("End date"), {
+            target: { value: endDate },
+        });
+        expect(screen.getByLabelText("Start date")).toHaveAttribute(
+            "max",
+            endDate,
+        );
+        expect(screen.getByLabelText("End date")).toHaveAttribute(
+            "min",
+            startDate,
+        );
+        fireEvent.click(screen.getByRole("button", { name: "Save course" }));
+        expect(
+            loadCourses().find((course) => course.code === "MATH 241"),
+        ).toMatchObject({ startDate, endDate });
+        view.unmount();
+        render(<CoursesPage />);
+        fireEvent.click(screen.getByRole("button", { name: "Edit MATH 241" }));
+        expect(screen.getByLabelText("Start date")).toHaveValue(startDate);
+        expect(screen.getByLabelText("End date")).toHaveValue(endDate);
+        fireEvent.click(
+            screen.getByRole("button", { name: "Clear meeting details" }),
+        );
+        fireEvent.click(screen.getByRole("button", { name: "Save course" }));
+        expect(
+            loadCourses().find((course) => course.code === "MATH 241"),
+        ).toMatchObject({ startDate: "", endDate: "" });
+    },
+);
+
+test.each([
+    ["2026-09-01", "", "Choose both a start date and an end date"],
+    ["", "2026-12-14", "Choose both a start date and an end date"],
+    ["2026-12-14", "2026-09-01", "End date must be on or after the start date"],
+])(
+    "rejects an incomplete or reversed date range: %s to %s",
+    (startDate, endDate, message) => {
+        render(<CoursesPage />);
+        fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
+        fireEvent.change(screen.getByLabelText("Start date"), {
+            target: { value: startDate },
+        });
+        fireEvent.change(screen.getByLabelText("End date"), {
+            target: { value: endDate },
+        });
+        fireEvent.submit(
+            screen
+                .getByRole("button", { name: "Save course" })
+                .closest("form")!,
+        );
+        expect(screen.getByRole("alert")).toHaveTextContent(message);
+        expect(localStorage.getItem("semester-planner-courses-v1")).toBeNull();
+    },
+);
+
 test("rejects duplicate codes and filters semesters", () => {
     render(<CoursesPage />);
     fireEvent.click(screen.getByRole("button", { name: "Create Course" }));
@@ -198,6 +280,25 @@ test("rejects duplicate codes and filters semesters", () => {
     expect(
         screen.getByText(/No courses in this semester yet/),
     ).toBeInTheDocument();
+});
+
+test("allows planning a course in a newly created semester", () => {
+    const onPlanInCalendar = jest.fn();
+    render(<CoursesPage onPlanInCalendar={onPlanInCalendar} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
+    fireEvent.change(screen.getByLabelText("Semester *"), {
+        target: { value: "Fall 2027" },
+    });
+    fireEvent.click(
+        screen.getByRole("button", { name: "Plan in Calender View" }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onPlanInCalendar).toHaveBeenCalledWith(
+        expect.objectContaining({ semester: "Fall 2027" }),
+    );
+    expect(
+        loadCourses().find((course) => course.code === "CISC 275")?.semester,
+    ).toBe("Fall 2027");
 });
 
 test("allows the same course code in different sections of one semester", () => {
@@ -398,47 +499,167 @@ test.each([
     "Mon / Wed / Fri 1:50 - 2:45 PM",
     "Tue / Thu 12:45 PM - 2:05 PM",
     "Tue / Thu 9:00 AM - 10:15 AM",
-])("accepts abbreviated meeting schedules: %s", (schedule) => {
+])("loads existing meeting schedules into the selectors: %s", (schedule) => {
+    localStorage.setItem(
+        "semester-planner-courses-v1",
+        JSON.stringify([{ ...loadCourses()[0], schedule }]),
+    );
     render(<CoursesPage />);
     fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
-    fireEvent.change(screen.getByLabelText("Meets"), {
-        target: { value: schedule },
-    });
+    const [
+        days,
+        startHour,
+        startMinute,
+        startPeriod,
+        endHour,
+        endMinute,
+        endPeriod,
+    ] = schedule
+        .match(/^(.*?) (\d+):(\d+)(?: (AM|PM))? - (\d+):(\d+) (AM|PM)$/)!
+        .slice(1);
+    for (const day of days.split(" / ")) {
+        expect(screen.getByRole("checkbox", { name: day })).toBeChecked();
+    }
+    expect(screen.getByLabelText("Start time hour")).toHaveValue(startHour);
+    expect(screen.getByLabelText("Start time minute")).toHaveValue(startMinute);
+    expect(screen.getByLabelText("Start time am/pm")).toHaveValue(
+        startPeriod || endPeriod,
+    );
+    expect(screen.getByLabelText("End time hour")).toHaveValue(endHour);
+    expect(screen.getByLabelText("End time minute")).toHaveValue(endMinute);
+    expect(screen.getByLabelText("End time am/pm")).toHaveValue(endPeriod);
     fireEvent.click(screen.getByRole("button", { name: "Save course" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByText(schedule)).toBeInTheDocument();
+    expect(
+        screen.getByText(
+            `${days} ${startHour}:${startMinute} ${startPeriod || endPeriod} - ${endHour}:${endMinute} ${endPeriod}`,
+        ),
+    ).toBeInTheDocument();
 });
 
+function selectMeetingTimes(
+    start = ["1", "50", "PM"],
+    end = ["2", "45", "PM"],
+) {
+    for (const [title, time] of [
+        ["Start", start],
+        ["End", end],
+    ] as const) {
+        for (const [index, part] of ["hour", "minute", "am/pm"].entries()) {
+            fireEvent.change(screen.getByLabelText(`${title} time ${part}`), {
+                target: { value: time[index] },
+            });
+        }
+    }
+}
+
+test("creates a course with selected days and times and restores them when editing", () => {
+    render(<CoursesPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Create Course" }));
+    fireEvent.change(screen.getByLabelText("Course code *"), {
+        target: { value: "MATH 241" },
+    });
+    fireEvent.change(screen.getByLabelText("Course name *"), {
+        target: { value: "Calculus" },
+    });
+    for (const day of ["Fri", "Wed", "Mon", "Tue", "Thu", "Sat", "Sun"]) {
+        fireEvent.click(screen.getByRole("checkbox", { name: day }));
+    }
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sun" }));
+    selectMeetingTimes(["11", "37", "AM"], ["12", "52", "PM"]);
+    fireEvent.click(screen.getByRole("button", { name: "Save course" }));
+    const schedule = "Mon / Tue / Wed / Thu / Fri / Sat 11:37 AM - 12:52 PM";
+    expect(screen.getByText(schedule)).toBeInTheDocument();
+    expect(localStorage.getItem("semester-planner-courses-v1")).toContain(
+        schedule,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit MATH 241" }));
+    expect(screen.getByRole("checkbox", { name: "Sat" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Sun" })).not.toBeChecked();
+    expect(screen.getByLabelText("Start time minute")).toHaveValue("37");
+    expect(screen.getByLabelText("End time am/pm")).toHaveValue("PM");
+});
+
+test.each(["days only", "times only", "missing minute"])(
+    "rejects incomplete meeting details: %s",
+    (scenario) => {
+        render(<CoursesPage />);
+        fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
+        if (scenario !== "times only")
+            fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
+        if (scenario !== "days only") selectMeetingTimes();
+        if (scenario === "missing minute")
+            fireEvent.change(screen.getByLabelText("End time minute"), {
+                target: { value: "" },
+            });
+        fireEvent.click(screen.getByRole("button", { name: "Save course" }));
+        expect(screen.getByRole("alert")).toHaveTextContent(
+            "Choose at least one meeting day and a complete start and end time.",
+        );
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(localStorage.getItem("semester-planner-courses-v1")).toBeNull();
+    },
+);
+
 test.each([
-    "Monday / Wednesday 1:50 - 2:45 PM",
-    "Mon, Wed 1:50 - 2:45 PM",
-    "Mon/Wed 1:50 - 2:45 PM",
-    "Mon / Wed / Fri / Sat 1:50 - 2:45 PM",
-    "Mon / Mon 1:50 - 2:45 PM",
-    "Mon 13:50 - 14:45 PM",
-    "Mon 1:60 - 2:45 PM",
-    "Mon 1:50 - 2:45 pm",
-    "Tue / Thu 12:45 pm - 2:05 PM",
-    "Tue / Thu 12:45 PM - 2:05 pm",
-    "Mon 1:50-2:45 PM",
-])("rejects invalid meeting schedules: %s", (schedule) => {
+    [
+        ["1", "00", "PM"],
+        ["12", "00", "PM"],
+    ],
+    [
+        ["9", "00", "AM"],
+        ["9", "00", "AM"],
+    ],
+    [
+        ["12", "00", "PM"],
+        ["12", "30", "AM"],
+    ],
+])(
+    "rejects an end time before or equal to the start time: %j to %j",
+    (start, end) => {
+        render(<CoursesPage />);
+        fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
+        fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
+        selectMeetingTimes(start, end);
+        fireEvent.click(screen.getByRole("button", { name: "Save course" }));
+        expect(screen.getByRole("alert")).toHaveTextContent(
+            "End time must be later than start time.",
+        );
+    },
+);
+
+test("clears meeting details and resets cancelled changes when opening a new course", () => {
     render(<CoursesPage />);
     fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
-    fireEvent.change(screen.getByLabelText("Meets"), {
-        target: { value: schedule },
-    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
+    selectMeetingTimes();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Course" }));
+    expect(screen.getByRole("checkbox", { name: "Mon" })).not.toBeChecked();
+    expect(screen.getByLabelText("Start time hour")).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
+    selectMeetingTimes();
     fireEvent.click(screen.getByRole("button", { name: "Save course" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-        "Mon / Wed / Fri 1:50 PM - 2:45 PM",
+    fireEvent.click(screen.getByRole("button", { name: "Edit CISC 275" }));
+    fireEvent.click(
+        screen.getByRole("button", { name: "Clear meeting details" }),
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-        "after both 12-hour times",
-    );
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(localStorage.getItem("semester-planner-courses-v1")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save course" }));
+    expect(loadCourses()[0].schedule).toBe("");
 });
 
 test("Add Course creates a spring course with the selected saved schedule", () => {
+    localStorage.setItem(
+        "semester-planner-courses-v1",
+        JSON.stringify([
+            {
+                ...loadCourses()[0],
+                schedule: "Mon / Wed / Fri 1:50 PM - 2:45 PM",
+            },
+        ]),
+    );
     render(<CoursesPage />);
     const card = screen
         .getByRole("heading", { name: "CISC 275" })
@@ -463,12 +684,20 @@ test("Add Course creates a spring course with the selected saved schedule", () =
     expect(within(dialog).getByLabelText("Semester *")).toHaveValue(
         "Spring 2027",
     );
+    expect(within(dialog).getByRole("checkbox", { name: "Mon" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "Wed" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "Fri" })).toBeChecked();
+    expect(within(dialog).getByLabelText("Start time hour")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("End time minute")).toHaveValue("45");
     fireEvent.click(
         within(dialog).getByRole("button", { name: "Save course" }),
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
         screen.getByRole("heading", { name: "CISC 275", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+        screen.getByText("Mon / Wed / Fri 1:50 PM - 2:45 PM"),
     ).toBeInTheDocument();
     const items = JSON.parse(
         localStorage.getItem("semester-planner:calendar-items")!,
