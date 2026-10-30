@@ -406,7 +406,6 @@ export function CoursesPage({
         <section className="courses-page">
             <header className="page-header">
                 <h1>Courses</h1>
-                <p>Your classes, meeting details, and tasks in one place.</p>
             </header>
             <div className="course-toolbar" aria-label="Course controls">
                 <label>

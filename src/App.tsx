@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import profPlanLogo from "./assets/prof-plan-logo.png";
+import semPlanLogo from "./assets/sem-plan-logo.png";
 import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage, loadCourses } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
@@ -14,7 +14,7 @@ import { initialTasks } from "./tasks";
 
 type Page =
     "home" | "courses" | "calendar" | "planning-notes" | "tasks" | "settings";
-const SETTINGS_KEY = "profplan:settings";
+const SETTINGS_KEY = "semplan:settings";
 
 function loadSettings(): Settings {
     try {
@@ -144,8 +144,8 @@ export function App() {
                         <div className="brand">
                             <img
                                 className="brand-logo"
-                                src={profPlanLogo}
-                                alt="ProfPlan"
+                                src={semPlanLogo}
+                                alt="SemPlan"
                             />
                         </div>
                     )}

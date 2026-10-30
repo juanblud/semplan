@@ -53,8 +53,8 @@ export function HomePage({
     return (
         <>
             <header className="home-header">
-                <h1>ProfPlan</h1>
-                <p>Your favorite place to plan as an Instructor!</p>
+                <h1>SemPlan</h1>
+                <p>Your favorite place to plan your semester!</p>
             </header>
 
             <section
