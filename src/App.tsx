@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import semPlanLogo from "./assets/sem-plan-logo.png";
+import semPlanLogoBw from "./assets/sem-plan-logo-bw.png";
+import semPlanLogoGreen from "./assets/sem-plan-logo-green.png";
+import semPlanLogoRed from "./assets/sem-plan-logo-red.png";
 import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage, loadCourses } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
 import { PlanningNotesPage } from "./components/PlanningNotesPage";
 import { SettingsPage } from "./components/SettingsPage";
-import type { Role, Settings } from "./components/SettingsPage";
+import type { ColorScheme, Role, Settings } from "./components/SettingsPage";
 import { TaskViewPage } from "./components/TaskViewPage";
 import { WelcomeRoleDialog } from "./components/WelcomeRoleDialog";
 
@@ -15,6 +18,21 @@ import { initialTasks } from "./tasks";
 type Page =
     "home" | "courses" | "calendar" | "planning-notes" | "tasks" | "settings";
 const SETTINGS_KEY = "semplan:settings";
+const logos: Record<ColorScheme, string> = {
+    ud: semPlanLogo,
+    "black-white": semPlanLogoBw,
+    red: semPlanLogoRed,
+    green: semPlanLogoGreen,
+};
+
+function isColorScheme(value: string | undefined): value is ColorScheme {
+    return (
+        value === "ud" ||
+        value === "black-white" ||
+        value === "red" ||
+        value === "green"
+    );
+}
 
 function loadSettings(): Settings {
     try {
@@ -23,6 +41,8 @@ function loadSettings(): Settings {
         ) as Partial<Settings> | null;
         return {
             darkMode: saved?.darkMode === true,
+            colorScheme:
+                isColorScheme(saved?.colorScheme) ? saved.colorScheme : "ud",
             largeFont: saved?.largeFont === true,
             role: saved?.role === "professor" ? "professor" : "student",
             roleSelected: saved?.roleSelected === true,
@@ -30,6 +50,7 @@ function loadSettings(): Settings {
     } catch {
         return {
             darkMode: false,
+            colorScheme: "ud",
             largeFont: false,
             role: "student",
             roleSelected: false,
@@ -136,7 +157,7 @@ export function App() {
 
     return (
         <div
-            className={`app-shell${collapsed ? " is-collapsed" : ""}${settings.darkMode ? " is-dark" : ""}${settings.largeFont ? " is-large-font" : ""}`}
+            className={`app-shell theme-${settings.colorScheme}${collapsed ? " is-collapsed" : ""}${settings.darkMode ? " is-dark" : ""}${settings.largeFont ? " is-large-font" : ""}`}
         >
             <aside className="sidebar" aria-label="Sidebar">
                 <div className="sidebar-top">
@@ -144,7 +165,7 @@ export function App() {
                         <div className="brand">
                             <img
                                 className="brand-logo"
-                                src={semPlanLogo}
+                                src={logos[settings.colorScheme]}
                                 alt="SemPlan"
                             />
                         </div>
