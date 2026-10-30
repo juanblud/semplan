@@ -83,7 +83,7 @@
 }
 
 .app-shell.is-dark .main-content::before {
-    opacity: 0.025;
+    opacity: 0.12;
 }
 
 /* ---------- Sidebar ---------- */

@@ -118,3 +118,13 @@ export function loadCalendarItems(): CalendarItem[] {
             semesters[0].name,
     }));
 }
+
+// A name for one semester week of one course, e.g. "Midterm review".
+export interface WeekLabel {
+    course: string;
+    semester: string;
+    week: number;
+    label: string;
+}
+
+export const WEEK_LABELS_KEY = "semester-planner:week-labels";

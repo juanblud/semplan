@@ -760,3 +760,118 @@
         animation: none;
     }
 }
+
+/* ---------- Week numbers and labels (draft) ---------- */
+
+.calendar-week-label-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+}
+
+.calendar-week-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--ud-gold);
+    color: #002a52;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 700;
+}
+
+.calendar-week-label-bar input {
+    flex: 1 1 260px;
+    max-width: 420px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--field);
+    color: var(--ink);
+    font: inherit;
+}
+
+.calendar-week-strip {
+    display: flex;
+    gap: 6px;
+    margin: 0 0 14px;
+    padding-bottom: 4px;
+    overflow-x: auto;
+}
+
+.calendar-week-strip button {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    min-width: 38px;
+    max-width: 110px;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ud-blue-dark);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.calendar-week-strip button small {
+    overflow: hidden;
+    max-width: 100%;
+    color: var(--muted);
+    font-size: calc(11px + var(--font-bump));
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendar-week-strip button.has-label {
+    border-color: var(--ud-blue);
+}
+
+.calendar-week-strip button.is-current {
+    box-shadow: inset 0 -3px 0 var(--ud-gold);
+}
+
+.calendar-week-strip button[aria-pressed="true"],
+.calendar-week-strip button[aria-pressed="true"] small {
+    background: var(--blue-fill);
+    color: #fff;
+}
+
+.calendar-grid .calendar-week-col {
+    width: 64px;
+    padding: 6px 4px;
+    border: 1px solid var(--line);
+    background: var(--soft-blue);
+    vertical-align: top;
+}
+
+.calendar-grid thead .calendar-week-col {
+    border-bottom: 3px solid var(--ud-gold);
+    background: var(--blue-fill);
+}
+
+.calendar-week-col button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 2px;
+    border: 0;
+    background: transparent;
+    color: var(--ud-blue-dark);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.calendar-week-col button small {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: calc(11px + var(--font-bump));
+    font-weight: 500;
+    line-height: 1.2;
+    word-break: break-word;
+}

@@ -12,7 +12,9 @@ import {
     loadCalendarItems,
     loadSaved,
     semesters,
+    WEEK_LABELS_KEY,
 } from "./calendarStorage";
+import type { WeekLabel } from "./calendarStorage";
 import type { CalendarItem } from "./scheduleTemplate";
 import "./CalendarPage.css";
 import {
@@ -21,6 +23,9 @@ import {
     formatLongDate,
     formatTime,
     getMonthGrid,
+    getSemesterWeek,
+    getSemesterWeekCount,
+    getSemesterWeekStart,
     parseDateKey,
     startOfMonth,
     toDateKey,
@@ -170,6 +175,9 @@ export function CalendarPage() {
     const [rangeEvents, setRangeEvents] = useState<RangeEvents | null>(null);
     const [addingActivity, setAddingActivity] = useState(false);
     const [topicDraft, setTopicDraft] = useState<string | null>(null);
+    const [weekLabels, setWeekLabels] = useState<WeekLabel[]>(() =>
+        loadSaved<WeekLabel>(WEEK_LABELS_KEY, []),
+    );
     const addActivityButton = useRef<HTMLButtonElement>(null);
 
     const semester =
@@ -203,6 +211,10 @@ export function CalendarPage() {
     useEffect(() => {
         save(CANCELLED_KEY, cancelledClasses);
     }, [cancelledClasses]);
+
+    useEffect(() => {
+        save(WEEK_LABELS_KEY, weekLabels);
+    }, [weekLabels]);
 
     useEffect(() => {
         if (!GOOGLE_API_KEY) {
@@ -258,6 +270,43 @@ export function CalendarPage() {
     const courseItems = items.filter(
         (item) => item.course === course.code && item.semester === semesterName,
     );
+    const weekCount = getSemesterWeekCount(semester.start, semester.end);
+    const focusWeek = getSemesterWeek(focusDate, semester.start, semester.end);
+    const todayWeek = getSemesterWeek(new Date(), semester.start, semester.end);
+
+    function getWeekLabel(week: number | null): string {
+        return (
+            weekLabels.find(
+                (entry) =>
+                    entry.week === week &&
+                    entry.course === course.code &&
+                    entry.semester === semesterName,
+            )?.label ?? ""
+        );
+    }
+
+    // An empty label removes the entry rather than storing a blank one.
+    function setWeekLabel(week: number, label: string) {
+        setWeekLabels((current) => [
+            ...current.filter(
+                (entry) =>
+                    !(
+                        entry.week === week &&
+                        entry.course === course.code &&
+                        entry.semester === semesterName
+                    ),
+            ),
+            ...(label ?
+                [{ course: course.code, semester: semesterName, week, label }]
+            :   []),
+        ]);
+    }
+
+    function openWeek(week: number) {
+        setFocusDate(getSemesterWeekStart(week, semester.start));
+        setView("week");
+    }
+
     const unscheduledTopics = courseItems.filter(
         (item) => item.kind === "topic" && !item.date,
     );
@@ -694,6 +743,60 @@ export function CalendarPage() {
                 )}
             </div>
 
+            {/* DRAFT idea 2: in the weekly view, show the week number and
+                let the user name the week. */}
+            {hasCourse && view === "week" && focusWeek !== null && (
+                <div className="calendar-week-label-bar">
+                    <span className="calendar-week-badge">
+                        Week {focusWeek} of {weekCount}
+                    </span>
+                    <input
+                        type="text"
+                        aria-label={`Label for week ${focusWeek}`}
+                        placeholder="Label this week, e.g. Midterm review"
+                        value={getWeekLabel(focusWeek)}
+                        onChange={(event) =>
+                            setWeekLabel(focusWeek, event.target.value)
+                        }
+                    />
+                </div>
+            )}
+
+            {/* DRAFT idea 3: a numbered strip of every semester week, to jump
+                straight to one. Labelled weeks show their label. */}
+            {hasCourse && (
+                <nav
+                    className="calendar-week-strip"
+                    aria-label="Semester weeks"
+                >
+                    {Array.from({ length: weekCount }, (_, index) => {
+                        const week = index + 1;
+                        const label = getWeekLabel(week);
+                        const className = [
+                            label && "has-label",
+                            week === todayWeek && "is-current",
+                        ]
+                            .filter(Boolean)
+                            .join(" ");
+                        return (
+                            <button
+                                key={week}
+                                type="button"
+                                className={className || undefined}
+                                aria-pressed={
+                                    view === "week" && week === focusWeek
+                                }
+                                title={label || `Week ${week}`}
+                                onClick={() => openWeek(week)}
+                            >
+                                <span>{week}</span>
+                                {label && <small>{label}</small>}
+                            </button>
+                        );
+                    })}
+                </nav>
+            )}
+
             {lastCancelled && (
                 <div className="calendar-notice" role="status">
                     <span>
@@ -785,6 +888,18 @@ export function CalendarPage() {
                         <table className={`calendar-grid is-${view}`}>
                             <thead>
                                 <tr>
+                                    {/* DRAFT idea 1: a week-number column on
+                                        the monthly grid. */}
+                                    {view === "month" && (
+                                        <th
+                                            scope="col"
+                                            className="calendar-week-col"
+                                        >
+                                            <abbr title="Semester week">
+                                                Wk
+                                            </abbr>
+                                        </th>
+                                    )}
                                     {WEEKDAYS.map((day, index) => (
                                         <th key={day} scope="col">
                                             {view === "month" ?
@@ -803,11 +918,46 @@ export function CalendarPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {weeks.map((week) => (
-                                    <tr key={toDateKey(week[0])}>
-                                        {week.map(renderDay)}
-                                    </tr>
-                                ))}
+                                {weeks.map((week) => {
+                                    const weekNumber = getSemesterWeek(
+                                        week[0],
+                                        semester.start,
+                                        semester.end,
+                                    );
+                                    const label = getWeekLabel(weekNumber);
+                                    return (
+                                        <tr key={toDateKey(week[0])}>
+                                            {view === "month" && (
+                                                <th
+                                                    scope="row"
+                                                    className="calendar-week-col"
+                                                >
+                                                    {weekNumber !== null && (
+                                                        <button
+                                                            type="button"
+                                                            aria-label={`Open week ${weekNumber}`}
+                                                            onClick={() =>
+                                                                openWeek(
+                                                                    weekNumber,
+                                                                )
+                                                            }
+                                                        >
+                                                            <span>
+                                                                {weekNumber}
+                                                            </span>
+                                                            {label && (
+                                                                <small>
+                                                                    {label}
+                                                                </small>
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </th>
+                                            )}
+                                            {week.map(renderDay)}
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
