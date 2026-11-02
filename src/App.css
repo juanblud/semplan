@@ -235,7 +235,7 @@
     background-attachment: fixed;
 }
 
-.app-shell.theme-ud.is-dark .main-content::before {
+.app-shell.is-dark .main-content::before {
     opacity: 0.12;
 }
 
@@ -417,8 +417,9 @@
     color: var(--ink);
 }
 
-/* The Blue Hens pattern belongs to the UD palette only. */
-.theme-ud .main-content::before {
+/* UD gets the Blue Hens pattern; the other palettes get quiet stationery
+   patterns drawn in their own colors, so dark mode follows automatically. */
+.main-content::before {
     position: absolute;
     z-index: -1;
     inset: 0;
@@ -426,6 +427,56 @@
     content: "";
     opacity: 0.08;
     pointer-events: none;
+}
+
+/* Red: a sparse dot grid. */
+.theme-red .main-content::before {
+    background: radial-gradient(var(--ud-blue) 1.5px, transparent 2px) 0 0 /
+        28px 28px;
+    opacity: 0.22;
+}
+
+/* Green: graph paper, with a stronger line every fifth square. */
+.theme-green .main-content::before {
+    background:
+        linear-gradient(var(--ud-blue) 1px, transparent 1px) 0 0 / 120px 120px,
+        linear-gradient(90deg, var(--ud-blue) 1px, transparent 1px) 0 0 / 120px
+            120px,
+        linear-gradient(
+                color-mix(in srgb, var(--ud-blue) 45%, transparent) 1px,
+                transparent 1px
+            )
+            0 0 / 24px 24px,
+        linear-gradient(
+                90deg,
+                color-mix(in srgb, var(--ud-blue) 45%, transparent) 1px,
+                transparent 1px
+            )
+            0 0 / 24px 24px;
+    opacity: 0.14;
+}
+
+/* Black & White: notebook ruled lines with a margin rule. */
+.theme-black-white .main-content::before {
+    background:
+        linear-gradient(
+                90deg,
+                transparent 15px,
+                var(--ud-gold-deep) 15px 16px,
+                transparent 16px
+            )
+            0 0 / 100% 100% no-repeat,
+        linear-gradient(transparent 31px, var(--ud-blue) 31px) 0 0 / 100% 32px;
+    opacity: 0.12;
+}
+
+.theme-red.is-dark .main-content::before {
+    opacity: 0.18;
+}
+
+.theme-green.is-dark .main-content::before,
+.theme-black-white.is-dark .main-content::before {
+    opacity: 0.1;
 }
 
 .home-header,
