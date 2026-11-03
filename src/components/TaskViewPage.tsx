@@ -1,40 +1,85 @@
 import { useRef, useState } from "react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import type { Task } from "../tasks";
+import type { Course } from "./CoursesPage";
+import { getCalendarSemesters } from "./calendarStorage";
 
 interface TaskViewPageProps {
+    courses: Course[];
     tasks: Task[];
     setTasks: Dispatch<SetStateAction<Task[]>>;
 }
 
-export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
+function formatTaskDate(date: string): string {
+    const [year, month, day] = date.split("-");
+    return `${month}/${day}/${year}`;
+}
+
+function normalizeCourseCode(code: string): string {
+    return code.toUpperCase().replace(/\s+/g, "");
+}
+
+export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
+    const [semester, setSemester] = useState("Fall 2026");
     const [title, setTitle] = useState("");
     const [course, setCourse] = useState("All");
     const [section, setSection] = useState("All");
-    const [date, setDate] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [finishDate, setFinishDate] = useState("");
     const [editingId, setEditingId] = useState<number | null>(null);
     const titleInput = useRef<HTMLInputElement>(null);
+    const semesters = getCalendarSemesters([...courses, ...tasks]);
+    const semesterCourses = courses.filter(
+        (item) => item.semester === semester,
+    );
+    const semesterTasks = tasks.filter((task) => task.semester === semester);
+    const courseOptions = [
+        ...new Set([
+            ...semesterCourses.map((item) => normalizeCourseCode(item.code)),
+            ...semesterTasks.map((task) => normalizeCourseCode(task.course)),
+        ]),
+    ].filter((code) => code !== "ALL");
+    const sectionOptions = [
+        ...new Set([
+            ...semesterCourses
+                .filter((item) => normalizeCourseCode(item.code) === course)
+                .map((item) => item.section),
+            ...semesterTasks
+                .filter((task) => normalizeCourseCode(task.course) === course)
+                .map((task) => task.section),
+        ]),
+    ].filter((item) => item && item !== "All");
 
     function resetForm() {
         setEditingId(null);
         setTitle("");
         setCourse("All");
         setSection("All");
-        setDate("");
+        setStartDate("");
+        setFinishDate("");
     }
 
     function editTask(task: Task) {
         setEditingId(task.id);
         setTitle(task.title);
-        setCourse(task.course);
+        setCourse(
+            task.course === "All" ? "All" : normalizeCourseCode(task.course),
+        );
         setSection(task.section);
-        setDate(task.date);
+        setStartDate(task.startDate);
+        setFinishDate(task.finishDate);
         titleInput.current?.focus();
     }
 
     function saveTask(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (!title.trim()) return;
+        if (
+            !title.trim() ||
+            !startDate ||
+            !finishDate ||
+            finishDate < startDate
+        )
+            return;
         if (editingId !== null) {
             setTasks((current) =>
                 current.map((task) =>
@@ -43,8 +88,10 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                             ...task,
                             title: title.trim(),
                             course,
+                            semester,
                             section: section.trim() || "All",
-                            date,
+                            startDate,
+                            finishDate,
                         }
                     :   task,
                 ),
@@ -58,8 +105,10 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                 id: Math.max(0, ...current.map((task) => task.id)) + 1,
                 title: title.trim(),
                 course,
+                semester,
                 section: section.trim() || "All",
-                date,
+                startDate,
+                finishDate,
                 completed: false,
             },
         ]);
@@ -100,15 +149,35 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                             onChange={(event) => setTitle(event.target.value)}
                         />
                     </label>
+                    <label className="task-semester-field">
+                        Semester
+                        <select
+                            required
+                            value={semester}
+                            onChange={(event) => {
+                                setSemester(event.target.value);
+                                setCourse("All");
+                                setSection("All");
+                            }}
+                        >
+                            {semesters.map((term) => (
+                                <option key={term.name}>{term.name}</option>
+                            ))}
+                        </select>
+                    </label>
                     <label>
                         Class
                         <select
                             value={course}
-                            onChange={(event) => setCourse(event.target.value)}
+                            onChange={(event) => {
+                                setCourse(event.target.value);
+                                setSection("All");
+                            }}
                         >
                             <option>All</option>
-                            <option>CISC275</option>
-                            <option>CISC320</option>
+                            {courseOptions.map((code) => (
+                                <option key={code}>{code}</option>
+                            ))}
                         </select>
                     </label>
                     <label>
@@ -118,17 +187,32 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                             onChange={(event) => setSection(event.target.value)}
                         >
                             <option>All</option>
-                            <option>010</option>
-                            <option>011</option>
+                            {sectionOptions.map((option) => (
+                                <option key={option}>{option}</option>
+                            ))}
                         </select>
                     </label>
                     <label>
-                        Date
+                        Start date
                         <input
                             type="date"
                             required
-                            value={date}
-                            onChange={(event) => setDate(event.target.value)}
+                            value={startDate}
+                            onChange={(event) =>
+                                setStartDate(event.target.value)
+                            }
+                        />
+                    </label>
+                    <label>
+                        Finish date
+                        <input
+                            type="date"
+                            required
+                            min={startDate || undefined}
+                            value={finishDate}
+                            onChange={(event) =>
+                                setFinishDate(event.target.value)
+                            }
                         />
                     </label>
                     {editingId !== null && (
@@ -140,9 +224,10 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                         </div>
                     )}
                 </form>
-                {tasks.length === 0 && (
+                {semesterTasks.length === 0 && (
                     <p className="task-edit-notice" role="status">
-                        No tasks scheduled. Add a task above to get started.
+                        No tasks scheduled for {semester}. Add a task above to
+                        get started.
                     </p>
                 )}
                 {[false, true].map((completed) => (
@@ -155,7 +240,7 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                         <h2>
                             {completed ? "Completed Tasks" : "Active Tasks"}
                         </h2>
-                        {!tasks.some(
+                        {!semesterTasks.some(
                             (task) => task.completed === completed,
                         ) && (
                             <p>
@@ -168,7 +253,7 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                             className="task-list"
                             aria-label={completed ? "Completed tasks" : "Tasks"}
                         >
-                            {tasks
+                            {semesterTasks
                                 .filter((task) => task.completed === completed)
                                 .map((task) => (
                                     <li
@@ -202,7 +287,12 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                                             <span className="task-mobile-label">
                                                 Class:{" "}
                                             </span>
-                                            {task.course}
+                                            <span>{task.course}</span>
+                                            {task.semester && (
+                                                <small className="task-semester">
+                                                    {task.semester}
+                                                </small>
+                                            )}
                                         </span>
                                         <span>
                                             <span className="task-mobile-label">
@@ -210,16 +300,24 @@ export function TaskViewPage({ tasks, setTasks }: TaskViewPageProps) {
                                             </span>
                                             {task.section}
                                         </span>
-                                        <time dateTime={task.date}>
-                                            <span className="task-mobile-label">
-                                                Date:{" "}
+                                        <span className="task-date">
+                                            <span className="task-date-label">
+                                                Start date
                                             </span>
-                                            {task.date
-                                                .split("-")
-                                                .slice(1)
-                                                .concat(task.date.split("-")[0])
-                                                .join("/")}
-                                        </time>
+                                            <time dateTime={task.startDate}>
+                                                {formatTaskDate(task.startDate)}
+                                            </time>
+                                        </span>
+                                        <span className="task-date">
+                                            <span className="task-date-label">
+                                                Finish date
+                                            </span>
+                                            <time dateTime={task.finishDate}>
+                                                {formatTaskDate(
+                                                    task.finishDate,
+                                                )}
+                                            </time>
+                                        </span>
                                         <div className="task-actions">
                                             <button
                                                 type="button"

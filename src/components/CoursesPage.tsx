@@ -491,6 +491,7 @@ export function CoursesPage({
                         .filter(
                             (task) =>
                                 !task.completed &&
+                                task.semester === course.semester &&
                                 normalize(task.course) ===
                                     normalize(course.code) &&
                                 (course.section ?
@@ -505,7 +506,9 @@ export function CoursesPage({
                                             other.section === task.section,
                                     )),
                         )
-                        .sort((a, b) => a.date.localeCompare(b.date));
+                        .sort((a, b) =>
+                            a.finishDate.localeCompare(b.finishDate),
+                        );
                     return (
                         <article
                             className="course-card"
@@ -553,7 +556,7 @@ export function CoursesPage({
                                 </strong>
                                 <p>
                                     {pending[0] ?
-                                        `${pending[0].title} - Due ${new Date(`${pending[0].date}T00:00:00`).toLocaleDateString("en-US")}`
+                                        `${pending[0].title} - Due ${new Date(`${pending[0].finishDate}T00:00:00`).toLocaleDateString("en-US")}`
                                     :   "No pending tasks for this course."}
                                 </p>
                             </div>

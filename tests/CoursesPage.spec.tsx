@@ -1,5 +1,6 @@
 import type { CalendarItem } from "../src/components/scheduleTemplate";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { CoursesPage, loadCourses } from "../src/components/CoursesPage";
 import { initialTasks } from "../src/tasks";
 
@@ -299,6 +300,37 @@ test("allows planning a course in a newly created semester", () => {
     expect(
         loadCourses().find((course) => course.code === "CISC 275")?.semester,
     ).toBe("Fall 2027");
+});
+
+test("shows only the selected semester's tasks for matching courses and sections", async () => {
+    const user = userEvent.setup();
+    const fallCourse = { ...loadCourses()[0], section: "010" };
+    const springCourse = {
+        ...fallCourse,
+        id: "spring275",
+        semester: "Spring 2027",
+    };
+    render(
+        <CoursesPage
+            courses={[fallCourse, springCourse]}
+            tasks={[
+                { ...initialTasks[0], title: "Fall homework" },
+                {
+                    ...initialTasks[0],
+                    id: 2,
+                    semester: "Spring 2027",
+                    title: "Spring homework",
+                },
+            ]}
+        />,
+    );
+    expect(screen.getByText(/Fall homework - Due/)).toBeInTheDocument();
+    expect(screen.queryByText(/Spring homework - Due/)).not.toBeInTheDocument();
+    expect(screen.getByText("1 pending task")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Semester"), "Spring 2027");
+    expect(screen.getByText(/Spring homework - Due/)).toBeInTheDocument();
+    expect(screen.queryByText(/Fall homework - Due/)).not.toBeInTheDocument();
+    expect(screen.getByText("1 pending task")).toBeInTheDocument();
 });
 
 test("allows the same course code in different sections of one semester", () => {
