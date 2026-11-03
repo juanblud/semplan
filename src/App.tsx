@@ -217,6 +217,7 @@ export function App() {
                     <HomePage
                         courses={courses}
                         tasks={tasks}
+                        showTasks={settings.role === "student"}
                         onToggleTask={(id) =>
                             setTasks((current) =>
                                 current.map((task) =>
@@ -244,7 +245,12 @@ export function App() {
                     <PlanningNotesPage />
                 : page === "settings" ?
                     <SettingsPage settings={settings} onChange={setSettings} />
-                :   <TaskViewPage tasks={tasks} setTasks={setTasks} />}
+                :   <TaskViewPage
+                        courses={courses}
+                        tasks={tasks}
+                        setTasks={setTasks}
+                    />
+                }
             </main>
             {!settings.roleSelected && (
                 <WelcomeRoleDialog onSelect={selectInitialRole} />

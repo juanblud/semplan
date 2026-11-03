@@ -6,21 +6,18 @@ import { getCalendarSemesters } from "./calendarStorage";
 interface HomePageProps {
     courses: Course[];
     tasks: Task[];
+    showTasks: boolean;
     onToggleTask: (id: number) => void;
     onOpenCourse: () => void;
-}
-
-function normalizeSearchText(value: string): string {
-    return value.toLowerCase().replace(/\s+/g, "");
 }
 
 export function HomePage({
     courses,
     onOpenCourse,
     tasks,
+    showTasks,
     onToggleTask,
 }: HomePageProps) {
-    const [search, setSearch] = useState("");
     const [semester, setSemester] = useState("Fall 2026");
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
@@ -33,16 +30,16 @@ export function HomePage({
         return () => window.clearTimeout(timer);
     }, [now]);
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const todayTasks = tasks.filter((task) => task.date === today);
+    const todayTasks = tasks.filter(
+        (task) =>
+            task.semester === semester &&
+            task.startDate <= today &&
+            today <= task.finishDate,
+    );
 
-    const normalizedSearch = normalizeSearchText(search);
     const semesters = getCalendarSemesters(courses).map((term) => term.name);
     const visibleCourses = courses.filter(
-        (course) =>
-            course.semester === semester &&
-            normalizeSearchText(`${course.code} ${course.title}`).includes(
-                normalizedSearch,
-            ),
+        (course) => course.semester === semester,
     );
 
     return (
@@ -66,15 +63,6 @@ export function HomePage({
                             <option key={term}>{term}</option>
                         ))}
                     </select>
-                </label>
-                <label className="search-field">
-                    <span>Search by course code or title</span>
-                    <input
-                        type="search"
-                        placeholder="Search"
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                    />
                 </label>
             </section>
 
@@ -107,50 +95,52 @@ export function HomePage({
                 }
             </section>
 
-            <section className="todo-section" aria-labelledby="todo-title">
-                <h2 id="todo-title">
-                    Today&apos;s tasks:{" "}
-                    <time dateTime={today}>
-                        {now.toLocaleDateString("en-US")}
-                    </time>
-                </h2>
-                <div className="todo-table-wrap">
-                    <table className="todo-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Course</th>
-                                <th scope="col">Task</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {todayTasks.map((task) => (
-                                <tr key={task.id}>
-                                    <th scope="row">{task.course}</th>
-                                    <td>
-                                        <label className="todo-item">
-                                            <input
-                                                type="checkbox"
-                                                checked={task.completed}
-                                                onChange={() =>
-                                                    onToggleTask(task.id)
-                                                }
-                                            />
-                                            <span>{task.title}</span>
-                                        </label>
-                                    </td>
-                                </tr>
-                            ))}
-                            {todayTasks.length === 0 && (
+            {showTasks && (
+                <section className="todo-section" aria-labelledby="todo-title">
+                    <h2 id="todo-title">
+                        Today&apos;s tasks:{" "}
+                        <time dateTime={today}>
+                            {now.toLocaleDateString("en-US")}
+                        </time>
+                    </h2>
+                    <div className="todo-table-wrap">
+                        <table className="todo-table">
+                            <thead>
                                 <tr>
-                                    <td colSpan={2}>
-                                        No tasks scheduled for today.
-                                    </td>
+                                    <th scope="col">Course</th>
+                                    <th scope="col">Task</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+                            </thead>
+                            <tbody>
+                                {todayTasks.map((task) => (
+                                    <tr key={task.id}>
+                                        <th scope="row">{task.course}</th>
+                                        <td>
+                                            <label className="todo-item">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={task.completed}
+                                                    onChange={() =>
+                                                        onToggleTask(task.id)
+                                                    }
+                                                />
+                                                <span>{task.title}</span>
+                                            </label>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {todayTasks.length === 0 && (
+                                    <tr>
+                                        <td colSpan={2}>
+                                            No tasks scheduled for today.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
         </>
     );
 }

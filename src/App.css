@@ -521,8 +521,8 @@
     box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
-.home-course-toolbar {
-    grid-template-columns: minmax(190px, 1fr) minmax(280px, 1.6fr);
+.course-toolbar.home-course-toolbar {
+    grid-template-columns: 1fr;
 }
 
 .course-toolbar label {
@@ -1067,14 +1067,14 @@ textarea:focus-visible {
 
 .task-form {
     display: grid;
-    grid-template-columns: 36px 1.5fr 1fr 0.8fr 1.1fr;
+    grid-template-columns: 36px 1.5fr 1.2fr 0.8fr 0.7fr 1fr 1fr;
     align-items: end;
     gap: 14px;
     margin-bottom: 30px;
 }
 
 .task-form.is-editing {
-    grid-template-columns: 1.5fr 1fr 0.8fr 1.1fr;
+    grid-template-columns: 1.5fr 1.2fr 0.8fr 0.7fr 1fr 1fr;
 }
 
 .task-form label {
@@ -1124,7 +1124,7 @@ textarea:focus-visible {
 
 .task-row {
     display: grid;
-    grid-template-columns: 1.5fr 1fr 0.8fr 1.1fr;
+    grid-template-columns: 1.5fr 0.8fr 0.7fr 1fr 1fr;
     gap: 14px;
     align-items: start;
     padding: 22px 18px;
@@ -1157,6 +1157,21 @@ textarea:focus-visible {
 
 .task-mobile-label {
     display: none;
+}
+
+.task-date {
+    display: flex;
+    flex-direction: column;
+    font-size: calc(16px + var(--font-bump));
+}
+
+.task-date-label {
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 700;
+}
+
+.task-semester {
+    display: block;
 }
 
 .task-actions,
@@ -1464,15 +1479,20 @@ textarea:focus-visible {
     }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
     .task-form,
     .task-form.is-editing {
         grid-template-columns: 1fr 1fr;
     }
 
+    .task-form > label:first-of-type,
+    .task-form > .task-semester-field {
+        grid-column: 1 / -1;
+    }
+
     .task-add {
         grid-column: 1 / -1;
-        grid-row: 3;
+        grid-row: 5;
         background: var(--blue-fill);
     }
 

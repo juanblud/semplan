@@ -701,32 +701,4 @@ describe("App", () => {
             screen.getByRole("link", { name: "Planning Notes" }),
         ).toHaveAttribute("aria-current", "page");
     });
-
-    test("finds courses with or without spaces in the search", async () => {
-        const user = userEvent.setup();
-        render(<App />);
-        const search = screen.getByRole("searchbox", {
-            name: "Search by course code or title",
-        });
-
-        await user.type(search, "CISC275");
-        expect(
-            screen.getByRole("heading", { name: "CISC 275" }),
-        ).toBeInTheDocument();
-        expect(
-            screen.queryByRole("heading", { name: "CISC 320" }),
-        ).not.toBeInTheDocument();
-
-        await user.clear(search);
-        await user.type(search, "CISC 275");
-        expect(
-            screen.getByRole("heading", { name: "CISC 275" }),
-        ).toBeInTheDocument();
-
-        await user.clear(search);
-        await user.type(search, "SoftwareEngineering");
-        expect(
-            screen.getByRole("heading", { name: "CISC 275" }),
-        ).toBeInTheDocument();
-    });
 });
