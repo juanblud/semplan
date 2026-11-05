@@ -193,3 +193,16 @@ export interface WeekLabel {
 }
 
 export const WEEK_LABELS_KEY = "semester-planner:week-labels";
+
+// One course's end-of-week reflection. Its plan is shown back the next week.
+export interface WeekReflection {
+    course: string;
+    semester: string;
+    week: number;
+    confidence?: number;
+    understood?: string;
+    struggled?: string;
+    plan?: string;
+}
+
+export const REFLECTIONS_KEY = "semester-planner:week-reflections";

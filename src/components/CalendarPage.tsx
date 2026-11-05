@@ -11,11 +11,14 @@ import {
     ITEMS_KEY,
     loadCalendarItems,
     loadSaved,
+    REFLECTIONS_KEY,
     WEEK_LABELS_KEY,
     getCalendarSemesters,
 } from "./calendarStorage";
-import type { WeekLabel } from "./calendarStorage";
+import type { WeekLabel, WeekReflection } from "./calendarStorage";
 import type { CalendarItem } from "./scheduleTemplate";
+import type { Role } from "./SettingsPage";
+import { WeekReflectionPanel } from "./WeekReflectionPanel";
 import "./CalendarPage.css";
 import {
     WEEKDAYS,
@@ -167,7 +170,7 @@ function getEventDateKeys(event: GoogleCalendarEvent): string[] {
     return keys;
 }
 
-export function CalendarPage() {
+export function CalendarPage({ role = "student" }: { role?: Role }) {
     const [savedCourses] = useState(loadCourses);
     const semesters = getCalendarSemesters(savedCourses);
     const [semesterName, setSemesterName] = useState(semesters[0].name);
@@ -228,6 +231,9 @@ export function CalendarPage() {
     const [weekLabels, setWeekLabels] = useState<WeekLabel[]>(() =>
         loadSaved<WeekLabel>(WEEK_LABELS_KEY, []),
     );
+    const [reflections, setReflections] = useState<WeekReflection[]>(() =>
+        loadSaved<WeekReflection>(REFLECTIONS_KEY, []),
+    );
     const addActivityButton = useRef<HTMLButtonElement>(null);
 
     const semester =
@@ -268,6 +274,10 @@ export function CalendarPage() {
     useEffect(() => {
         save(WEEK_LABELS_KEY, weekLabels);
     }, [weekLabels]);
+
+    useEffect(() => {
+        save(REFLECTIONS_KEY, reflections);
+    }, [reflections]);
 
     useEffect(() => {
         if (!GOOGLE_API_KEY) {
@@ -366,6 +376,42 @@ export function CalendarPage() {
             ...(label ?
                 [{ course: course.code, semester: semesterName, week, label }]
             :   []),
+        ]);
+    }
+
+    function getReflection(week: number): WeekReflection | undefined {
+        return reflections.find(
+            (entry) =>
+                entry.week === week &&
+                entry.course === course.code &&
+                entry.semester === semesterName,
+        );
+    }
+
+    // A reflection emptied of everything is removed rather than stored blank.
+    function updateReflection(week: number, changes: Partial<WeekReflection>) {
+        const next: WeekReflection = {
+            ...getReflection(week),
+            ...changes,
+            course: course.code,
+            semester: semesterName,
+            week,
+        };
+        const isEmpty =
+            !next.confidence &&
+            !next.understood?.trim() &&
+            !next.struggled?.trim() &&
+            !next.plan?.trim();
+        setReflections((current) => [
+            ...current.filter(
+                (entry) =>
+                    !(
+                        entry.week === week &&
+                        entry.course === course.code &&
+                        entry.semester === semesterName
+                    ),
+            ),
+            ...(isEmpty ? [] : [next]),
         ]);
     }
 
@@ -1005,6 +1051,21 @@ export function CalendarPage() {
                 </div>
             )}
 
+            {hasCourse && view === "week" && focusWeek !== null && !showAll && (
+                <WeekReflectionPanel
+                    role={role}
+                    week={focusWeek}
+                    reflection={getReflection(focusWeek)}
+                    previousPlan={getReflection(focusWeek - 1)?.plan ?? ""}
+                    onChange={(changes) => updateReflection(focusWeek, changes)}
+                />
+            )}
+            {hasCourse && view === "week" && focusWeek !== null && showAll && (
+                <p className="calendar-reflection-hint">
+                    Choose a single course to reflect on this week.
+                </p>
+            )}
+
             {/* DRAFT idea 3: a numbered strip of every semester week, to jump
                 straight to one. Labelled weeks show their label. */}
             {hasCourse && (
@@ -1018,6 +1079,7 @@ export function CalendarPage() {
                         const className = [
                             label && "has-label",
                             week === todayWeek && "is-current",
+                            !showAll && getReflection(week) && "has-reflection",
                         ]
                             .filter(Boolean)
                             .join(" ");

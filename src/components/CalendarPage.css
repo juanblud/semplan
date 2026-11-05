@@ -888,6 +888,122 @@
     font: inherit;
 }
 
+.calendar-reflection {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink);
+}
+
+.calendar-reflection summary {
+    color: var(--ud-blue-dark);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.calendar-reflection summary small {
+    margin-left: 8px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.calendar-reflection blockquote {
+    margin: 12px 0 0;
+    padding: 8px 12px;
+    border-left: 4px solid var(--ud-gold);
+    background: var(--soft-gold);
+}
+
+.calendar-reflection fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.calendar-reflection legend {
+    margin-bottom: 6px;
+    padding: 0;
+    font-weight: 600;
+}
+
+.calendar-reflection fieldset button {
+    padding: 4px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--field);
+    color: var(--ink);
+    cursor: pointer;
+    font: inherit;
+}
+
+.calendar-reflection fieldset button[aria-pressed="true"] {
+    border-color: var(--blue-fill);
+    background: var(--blue-fill);
+    color: #fff;
+}
+
+.calendar-reflection-questions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.calendar-reflection-questions label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-weight: 600;
+}
+
+.calendar-reflection-questions textarea {
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--field);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 400;
+    resize: vertical;
+}
+
+.calendar-reflection-clear {
+    margin-top: 12px;
+    padding: 4px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--field);
+    color: var(--ink);
+    cursor: pointer;
+    font: inherit;
+}
+
+.calendar-reflection-hint {
+    margin: 0 0 12px;
+    color: var(--muted);
+}
+
+/* A dot on the week strip marks weeks already reflected on. */
+.calendar-week-strip button.has-reflection {
+    position: relative;
+}
+
+.calendar-week-strip button.has-reflection::after {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ud-gold-deep);
+    content: "";
+}
+
 .calendar-week-strip {
     display: flex;
     gap: 6px;

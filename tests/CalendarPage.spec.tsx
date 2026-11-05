@@ -735,6 +735,102 @@ describe("CalendarPage", () => {
             });
         }
 
+        test("keeps a weekly reflection and shows its plan the next week", async () => {
+            const user = setupUser();
+            const view = render(<CalendarPage />);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+
+            await user.click(screen.getByText("Reflect on week 7"));
+            await user.click(screen.getByRole("button", { name: "Shaky" }));
+            await user.type(
+                screen.getByRole("textbox", {
+                    name: "What will you do differently next week?",
+                }),
+                "Start the reading earlier",
+            );
+            expect(
+                screen.getByRole("button", { name: "Shaky" }),
+            ).toHaveAttribute("aria-pressed", "true");
+            const strip = screen.getByRole("navigation", {
+                name: "Semester weeks",
+            });
+            expect(
+                within(strip).getByRole("button", { name: "7" }),
+            ).toHaveClass("has-reflection");
+
+            // The plan comes back the following week, and survives a reload.
+            view.unmount();
+            render(<CalendarPage />);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+            await user.click(screen.getByRole("button", { name: "Next week" }));
+            expect(
+                screen.getByText("Last week you planned to:"),
+            ).toBeInTheDocument();
+            expect(
+                screen.getByText("Start the reading earlier"),
+            ).toBeInTheDocument();
+
+            // Clearing everything removes the reflection.
+            await user.click(
+                screen.getByRole("button", { name: "Previous week" }),
+            );
+            await user.click(screen.getByRole("button", { name: "Shaky" }));
+            await user.clear(
+                screen.getByRole("textbox", {
+                    name: "What will you do differently next week?",
+                }),
+            );
+            expect(
+                within(
+                    screen.getByRole("navigation", { name: "Semester weeks" }),
+                ).getByRole("button", { name: "7" }),
+            ).not.toHaveClass("has-reflection");
+        });
+
+        test("clears a weekly reflection with the Clear button", async () => {
+            const user = setupUser();
+            render(<CalendarPage />);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+            await user.click(screen.getByText("Reflect on week 7"));
+
+            // There is nothing to clear until something has been entered.
+            expect(
+                screen.queryByRole("button", { name: "Clear" }),
+            ).not.toBeInTheDocument();
+
+            const planField = screen.getByRole("textbox", {
+                name: "What will you do differently next week?",
+            });
+            await user.click(screen.getByRole("button", { name: "Shaky" }));
+            await user.type(planField, "Start the reading earlier");
+            await user.click(screen.getByRole("button", { name: "Clear" }));
+
+            expect(planField).toHaveValue("");
+            expect(
+                screen.getByRole("button", { name: "Shaky" }),
+            ).toHaveAttribute("aria-pressed", "false");
+            expect(
+                within(
+                    screen.getByRole("navigation", { name: "Semester weeks" }),
+                ).getByRole("button", { name: "7" }),
+            ).not.toHaveClass("has-reflection");
+            expect(
+                screen.queryByRole("button", { name: "Clear" }),
+            ).not.toBeInTheDocument();
+        });
+
+        test("words the weekly reflection for professors", async () => {
+            const user = setupUser();
+            render(<CalendarPage role="professor" />);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+
+            expect(
+                screen.getByRole("textbox", {
+                    name: "Where did students struggle?",
+                }),
+            ).toBeInTheDocument();
+        });
+
         test("highlights the current week in the monthly view to start", () => {
             render(<CalendarPage />);
 

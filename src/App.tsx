@@ -240,7 +240,7 @@ export function App() {
                         onPlanInCalendar={() => navigate("calendar")}
                     />
                 : page === "calendar" ?
-                    <CalendarPage />
+                    <CalendarPage role={settings.role} />
                 : page === "planning-notes" ?
                     <PlanningNotesPage />
                 : page === "settings" ?
