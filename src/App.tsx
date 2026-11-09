@@ -14,6 +14,7 @@ import { TaskViewPage } from "./components/TaskViewPage";
 import { WelcomeRoleDialog } from "./components/WelcomeRoleDialog";
 
 import { initialTasks } from "./tasks";
+import type { Task } from "./tasks";
 
 type Page =
     "home" | "courses" | "calendar" | "planning-notes" | "tasks" | "settings";
@@ -104,9 +105,13 @@ function getPageFromUrl(role: Role): Page {
         :   (requested ?? "home");
 }
 
-export function App() {
+export function App({
+    startingTasks = initialTasks,
+}: {
+    startingTasks?: Task[];
+}) {
     const [settings, setSettings] = useState(loadSettings);
-    const [tasks, setTasks] = useState(initialTasks);
+    const [tasks, setTasks] = useState(startingTasks);
     const [courses, setCourses] = useState(loadCourses);
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [page, setPage] = useState<Page>(() =>
@@ -217,6 +222,7 @@ export function App() {
                     <HomePage
                         courses={courses}
                         tasks={tasks}
+                        role={settings.role}
                         showTasks={settings.role === "student"}
                         onToggleTask={(id) =>
                             setTasks((current) =>
@@ -237,6 +243,7 @@ export function App() {
                         courses={courses}
                         onCoursesChange={setCourses}
                         tasks={tasks}
+                        role={settings.role}
                         onPlanInCalendar={() => navigate("calendar")}
                     />
                 : page === "calendar" ?

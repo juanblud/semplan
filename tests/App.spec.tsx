@@ -134,9 +134,9 @@ describe("App", () => {
         );
         const view = render(<App />);
         await user.click(screen.getByRole("link", { name: "Calendar" }));
-        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
-            "CISC 275",
-        );
+        expect(
+            screen.getByRole("combobox", { name: "Course" }),
+        ).toHaveDisplayValue("All Courses");
         const calendarItems = localStorage.getItem(
             "semester-planner:calendar-items",
         );
@@ -558,9 +558,9 @@ describe("App", () => {
         );
 
         expect(window.location.pathname).toBe("/Calendar");
-        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
-            "CISC 275",
-        );
+        expect(
+            screen.getByRole("combobox", { name: "Course" }),
+        ).toHaveDisplayValue("All Courses");
         expect(screen.getByRole("combobox", { name: "Semester" })).toHaveValue(
             "Fall 2026",
         );

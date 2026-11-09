@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import type { Task } from "../tasks";
+import { AddSemesterButton } from "./AddSemesterButton";
 import type { Course } from "./CoursesPage";
+import { HomeWeekView } from "./HomeWeekView";
 import { getCalendarSemesters } from "./calendarStorage";
+import type { Role } from "./SettingsPage";
+import { useSelectedSemester } from "./useSelectedSemester";
 
 interface HomePageProps {
     courses: Course[];
     tasks: Task[];
+    role?: Role;
     showTasks: boolean;
     onToggleTask: (id: number) => void;
     onOpenCourse: () => void;
@@ -15,10 +20,13 @@ export function HomePage({
     courses,
     onOpenCourse,
     tasks,
+    role,
     showTasks,
     onToggleTask,
 }: HomePageProps) {
-    const [semester, setSemester] = useState("Fall 2026");
+    const calendarSemesters = getCalendarSemesters(courses);
+    const semesters = calendarSemesters.map((term) => term.name);
+    const [semester, setSemester] = useSelectedSemester(semesters);
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
         const nextDay = new Date(now);
@@ -37,13 +45,15 @@ export function HomePage({
             today <= task.finishDate,
     );
 
-    const semesters = getCalendarSemesters(courses).map((term) => term.name);
+    const selectedSemester = calendarSemesters.find(
+        (term) => term.name === semester,
+    );
     const visibleCourses = courses.filter(
         (course) => course.semester === semester,
     );
 
     return (
-        <>
+        <section className="home-page">
             <header className="home-header">
                 <h1>SemPlan</h1>
                 <p>Your favorite place to plan your semester!</p>
@@ -53,18 +63,35 @@ export function HomePage({
                 className="course-toolbar home-course-toolbar"
                 aria-label="Course controls"
             >
-                <label className="semester-field">
-                    <span>Semester</span>
-                    <select
-                        value={semester}
-                        onChange={(event) => setSemester(event.target.value)}
-                    >
-                        {semesters.map((term) => (
-                            <option key={term}>{term}</option>
-                        ))}
-                    </select>
-                </label>
+                <div className="semester-with-add">
+                    <label className="semester-field">
+                        <span>Semester</span>
+                        <select
+                            value={semester}
+                            onChange={(event) =>
+                                setSemester(event.target.value)
+                            }
+                        >
+                            {semesters.map((term) => (
+                                <option key={term}>{term}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <AddSemesterButton
+                        existing={semesters}
+                        role={role}
+                        onAdd={setSemester}
+                    />
+                </div>
             </section>
+
+            {selectedSemester && visibleCourses.length > 0 && (
+                <HomeWeekView
+                    courses={visibleCourses}
+                    semester={selectedSemester}
+                    now={now}
+                />
+            )}
 
             <section
                 className="courses-section"
@@ -141,6 +168,6 @@ export function HomePage({
                     </div>
                 </section>
             )}
-        </>
+        </section>
     );
 }

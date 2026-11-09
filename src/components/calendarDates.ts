@@ -45,6 +45,32 @@ export function getMonthGrid(month: Date): Date[] {
     );
 }
 
+// The Sunday-to-Saturday week holding the given date.
+export function getWeek(date: Date): Date[] {
+    const weekStart = addDays(date, -date.getDay());
+    return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+}
+
+// e.g. "October 11–17, 2026" or "September 27 – October 3, 2026".
+export function formatWeekRange(start: Date, end: Date): string {
+    const sameYear = start.getFullYear() === end.getFullYear();
+    if (sameYear && start.getMonth() === end.getMonth()) {
+        const month = start.toLocaleDateString("en-US", { month: "long" });
+        return `${month} ${start.getDate()}–${end.getDate()}, ${end.getFullYear()}`;
+    }
+    const startText = start.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: sameYear ? undefined : "numeric",
+    });
+    const endText = end.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+    });
+    return `${startText} – ${endText}`;
+}
+
 export function formatLongDate(date: Date): string {
     return date.toLocaleDateString("en-US", {
         weekday: "long",

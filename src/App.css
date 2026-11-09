@@ -218,7 +218,10 @@
 /* Subtle theme-matched glows stay fixed while content scrolls. */
 .app-shell {
     display: flex;
-    min-height: 100vh;
+    /* Exactly one screen tall: pages fit inside it rather than scrolling. */
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
     background-color: var(--canvas);
     background-image:
         radial-gradient(
@@ -245,7 +248,8 @@
     position: sticky;
     top: 0;
     flex: 0 0 208px;
-    height: 100vh;
+    height: 100%;
+    overflow-y: auto;
     padding: 14px 12px 24px;
     border-right: 4px solid var(--ud-gold);
     background: linear-gradient(
@@ -411,10 +415,102 @@
     position: relative;
     /* Keeps the background pattern's negative z-index inside the main area. */
     isolation: isolate;
+    display: flex;
     flex: 1;
+    flex-direction: column;
     min-width: 0;
-    padding: 28px 32px 60px;
+    height: 100%;
+    /* Only a screen too small for a page's fixed parts scrolls here. */
+    overflow-y: auto;
+    padding: clamp(12px, 3vh, 28px) 32px;
     color: var(--ink);
+}
+
+/* ---------- Fit to screen ----------
+   Each page is a column: its header and toolbars keep their size, and its
+   main area takes the height left over, scrolling inside itself if needed.
+   The min-heights stop that area being squeezed to nothing on short
+   screens; past that point the page scrolls as a whole. */
+
+.main-content > section {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    /* Pages centered with auto margins would otherwise shrink to fit. */
+    width: 100%;
+    min-height: 0;
+}
+
+.main-content > section > * {
+    flex: none;
+}
+
+/* Home's courses and tasks are as tall as their content, and share the
+   squeeze when both can't fit. */
+.home-page .courses-section,
+.home-page .todo-section {
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column;
+    min-height: 140px;
+}
+
+.home-page .course-grid,
+.home-page .todo-table-wrap {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.home-page .course-grid {
+    align-content: start;
+    /* Rows keep their cards' height and scroll, rather than squashing. */
+    grid-auto-rows: max-content;
+    gap: 16px;
+    margin: 0;
+    /* Room for the cards' hover lift and shadow inside the scroll area. */
+    padding: 4px 4px 8px;
+}
+
+.home-page .course-card {
+    min-height: 0;
+    padding: 14px 18px;
+}
+
+.home-page .course-card h3 {
+    font-size: calc(24px + var(--font-bump));
+}
+
+.home-page .course-card button {
+    margin-top: 10px;
+}
+
+.home-page .empty-message {
+    margin: 0;
+}
+
+.todo-table thead th {
+    position: sticky;
+    top: 0;
+}
+
+.task-view-page .task-panel {
+    flex: 1 1 0;
+    width: 100%;
+    min-height: 260px;
+    overflow-y: auto;
+}
+
+.planning-notes-page .notes-grid,
+.planning-notes-page .notes-empty-state {
+    flex: 1 1 0;
+    min-height: 200px;
+}
+
+.planning-notes-page .notes-grid {
+    align-content: start;
+    overflow-y: auto;
+    padding: 4px;
 }
 
 /* UD gets the Blue Hens pattern; the other palettes get quiet stationery
@@ -481,7 +577,7 @@
 
 .home-header,
 .page-header {
-    margin-bottom: 26px;
+    margin-bottom: clamp(10px, 2.5vh, 26px);
 }
 
 .home-header h1,
@@ -492,8 +588,8 @@
     border-bottom: 4px solid var(--ud-gold);
     color: var(--ud-blue);
     font-size: clamp(
-        calc(32px + var(--font-bump)),
-        calc(4vw + var(--font-bump)),
+        calc(26px + var(--font-bump)),
+        calc(min(4vw, 5vh) + var(--font-bump)),
         calc(44px + var(--font-bump))
     );
     font-weight: 700;
@@ -502,7 +598,7 @@
 }
 
 .home-header p {
-    margin: 10px 0 0;
+    margin: clamp(4px, 1vh, 10px) 0 0;
     color: var(--muted);
     font-size: calc(19px + var(--font-bump));
 }
@@ -512,8 +608,8 @@
     grid-template-columns: minmax(190px, 1fr) minmax(280px, 1.6fr) auto;
     align-items: end;
     gap: 24px;
-    margin: 0 0 18px;
-    padding: 16px 20px 20px;
+    margin: 0 0 clamp(8px, 2vh, 18px);
+    padding: clamp(10px, 1.6vh, 16px) 20px clamp(12px, 2vh, 20px);
     border: 1px solid var(--line);
     border-top: 4px solid var(--ud-blue);
     border-radius: 8px;
@@ -521,8 +617,68 @@
     box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
+/* Home has only the semester picker, so it sits on one compact row. */
 .course-toolbar.home-course-toolbar {
-    grid-template-columns: 1fr;
+    align-self: flex-start;
+    grid-template-columns: auto;
+    padding-block: 10px;
+}
+
+.home-course-toolbar .semester-with-add {
+    align-items: center;
+}
+
+.course-toolbar.home-course-toolbar label {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
+/* On short screens the tagline gives its space to the page's content. */
+@media (max-height: 760px) {
+    .home-header p {
+        display: none;
+    }
+}
+
+.semester-with-add {
+    display: flex;
+    min-width: 0;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.semester-with-add .add-semester {
+    height: 38px;
+    flex: none;
+    padding: 2px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--field);
+    color: var(--ud-blue-dark);
+    cursor: pointer;
+    font: inherit;
+    font-size: calc(15px + var(--font-bump));
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.semester-with-add .add-semester:hover {
+    border-color: var(--ud-blue);
+}
+
+.task-form .semester-with-add label {
+    flex: 1;
+}
+
+.task-form .semester-with-add .add-semester {
+    height: 42px;
+}
+
+.add-semester-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
 }
 
 .course-toolbar label {
@@ -585,12 +741,82 @@
     cursor: not-allowed;
 }
 
+.home-week h2,
 .courses-section h2,
 .todo-section h2 {
-    margin: 28px 0 14px;
+    margin: clamp(8px, 2vh, 28px) 0 clamp(6px, 1.4vh, 14px);
     color: var(--ud-navy);
     font-size: calc(24px + var(--font-bump));
     font-weight: 700;
+}
+
+.home-week h2 {
+    margin-bottom: 2px;
+}
+
+.home-week-range {
+    margin: 0 0 clamp(6px, 1.4vh, 14px);
+    color: var(--muted);
+}
+
+/* One column per class day, so a Tue/Thu week fills the row with two. */
+.home-week-days {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.home-week-day {
+    padding: clamp(8px, 1.6vh, 14px) 16px;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--ud-blue);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.home-week-day.is-today {
+    border-top-color: var(--ud-gold);
+    background: var(--soft-gold);
+}
+
+.home-week-day h3 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 8px;
+    margin: 0 0 clamp(4px, 1vh, 10px);
+    color: var(--ud-blue-dark);
+    font-size: calc(16px + var(--font-bump));
+}
+
+.home-week-day h3 span {
+    color: var(--muted);
+    font-size: calc(13px + var(--font-bump));
+    font-weight: 500;
+}
+
+.home-week-day ul {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.home-week-day li {
+    display: flex;
+    flex-direction: column;
+    color: var(--ink);
+}
+
+.home-week-day li span {
+    color: var(--muted);
+    font-size: calc(13px + var(--font-bump));
 }
 
 .course-grid {
@@ -696,7 +922,7 @@
 }
 
 .todo-table thead th {
-    padding: 10px 18px;
+    padding: clamp(7px, 1.2vh, 10px) 18px;
     border-bottom: 3px solid var(--ud-gold);
     background: var(--blue-fill);
     color: #fff;
@@ -721,7 +947,7 @@
 }
 
 .todo-table tbody td {
-    padding: 12px 18px;
+    padding: clamp(8px, 1.4vh, 12px) 18px;
 }
 
 .todo-item {
@@ -1220,8 +1446,8 @@ textarea:focus-visible {
 }
 
 .settings-card {
-    margin-bottom: 24px;
-    padding: 24px 28px;
+    margin-bottom: clamp(12px, 2.4vh, 24px);
+    padding: clamp(14px, 2.4vh, 24px) 28px;
     border: 1px solid var(--line);
     border-top: 4px solid var(--ud-gold);
     border-radius: 10px;
@@ -1247,7 +1473,7 @@ textarea:focus-visible {
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    padding: 16px 0;
+    padding: clamp(8px, 1.6vh, 16px) 0;
     cursor: pointer;
 }
 
@@ -1532,7 +1758,7 @@ textarea:focus-visible {
     }
 
     .main-content {
-        padding: 20px 18px 50px;
+        padding: clamp(10px, 2.5vh, 20px) 18px;
     }
 
     .course-toolbar {
