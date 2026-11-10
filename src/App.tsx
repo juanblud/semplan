@@ -242,7 +242,7 @@ export function App() {
                 : page === "calendar" ?
                     <CalendarPage />
                 : page === "planning-notes" ?
-                    <PlanningNotesPage />
+                    <PlanningNotesPage courses={courses} />
                 : page === "settings" ?
                     <SettingsPage settings={settings} onChange={setSettings} />
                 :   <TaskViewPage
