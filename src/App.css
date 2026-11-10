@@ -1040,6 +1040,37 @@
     gap: 18px;
 }
 
+.notes-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.markdown-guide-button,
+.markdown-guide-header button {
+    min-height: 46px;
+    padding: 8px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ud-blue-dark);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.markdown-guide-button:hover,
+.markdown-guide-header button:hover {
+    background: var(--soft-blue);
+}
+
+.markdown-guide-button:focus-visible,
+.markdown-guide-header button:focus-visible {
+    outline: 3px solid var(--ud-gold-deep);
+    outline-offset: 3px;
+}
+
 .add-note-button,
 .save-note-button {
     border: 0;
@@ -1092,6 +1123,7 @@
 }
 
 .note-editor input,
+.note-editor select,
 .note-editor textarea {
     width: 100%;
     padding: 10px 12px;
@@ -1148,6 +1180,7 @@
 
 .notes-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     margin: 0 0 18px;
@@ -1156,7 +1189,19 @@
     font-weight: 700;
 }
 
-.notes-toolbar select {
+.notes-toolbar-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.notes-toolbar select,
+.note-course select {
+    max-width: 100%;
+    min-width: 0;
     min-height: 36px;
     padding: 5px 10px;
     border: 1px solid var(--line);
@@ -1165,6 +1210,16 @@
     color: var(--ink);
     font: inherit;
     font-weight: 400;
+}
+
+.note-course {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 12px;
+    color: var(--ud-blue-dark);
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 700;
 }
 
 .notes-grid {
@@ -1745,9 +1800,10 @@ textarea:focus-visible {
     color: #ffbdb5;
 }
 
-/* ---------- First-visit role choice ---------- */
+/* ---------- Welcome and Markdown guide dialogs ---------- */
 
-.welcome-role-dialog {
+.welcome-role-dialog,
+.markdown-guide-dialog {
     width: min(90vw, 580px);
     max-height: calc(100vh - 32px);
     margin: auto;
@@ -1762,9 +1818,86 @@ textarea:focus-visible {
     font: inherit;
 }
 
-.welcome-role-dialog::backdrop {
+.welcome-role-dialog::backdrop,
+.markdown-guide-dialog::backdrop {
     background: rgb(10 32 54 / 58%);
     backdrop-filter: blur(2px);
+}
+
+.markdown-guide-dialog {
+    width: min(92vw, 840px);
+    max-height: min(88dvh, 900px);
+    overflow: hidden;
+}
+
+.markdown-guide-dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.markdown-guide-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.markdown-guide-header h2 {
+    margin: 0;
+    color: var(--ud-blue);
+    font-size: calc(28px + var(--font-bump));
+}
+
+.markdown-guide-header button {
+    flex-shrink: 0;
+}
+
+.markdown-guide-content {
+    overflow: auto;
+    min-height: 0;
+    line-height: 1.5;
+}
+
+.markdown-guide-content > p {
+    margin: 0 0 18px;
+}
+
+.markdown-guide-content a {
+    color: var(--ud-blue);
+}
+
+.markdown-guide-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: calc(15px + var(--font-bump));
+}
+
+.markdown-guide-table th,
+.markdown-guide-table td {
+    padding: 14px 12px;
+    border: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.markdown-guide-table thead {
+    background: var(--soft-blue);
+    color: var(--ud-blue-dark);
+}
+
+.markdown-guide-table pre {
+    margin: 8px 0 0;
+    white-space: pre-wrap;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 400;
+}
+
+.markdown-guide-content > .markdown-guide-tip {
+    margin-top: 18px;
+    color: var(--muted);
 }
 
 .welcome-role-dialog h1 {
@@ -1811,7 +1944,8 @@ textarea:focus-visible {
 }
 
 @media (max-width: 600px) {
-    .welcome-role-dialog {
+    .welcome-role-dialog,
+    .markdown-guide-dialog {
         width: min(94vw, 480px);
         padding: 24px;
     }

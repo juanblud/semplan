@@ -1,16 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { loadCourses } from "./CoursesPage";
+import type { Course } from "./CoursesPage";
+import { courseKey } from "./calendarStorage";
+import { MarkdownGuideDialog } from "./MarkdownGuideDialog";
 
 interface Note {
     id: string;
     title: string;
     body: string;
+    courseId: string;
     createdAt: number;
     updatedAt: number;
 }
 
 type StoredNote = Pick<Note, "id" | "title" | "body"> &
-    Partial<Pick<Note, "createdAt" | "updatedAt">>;
+    Partial<Pick<Note, "courseId" | "createdAt" | "updatedAt">>;
 
 type SortBy = "updatedAt" | "createdAt";
 
@@ -51,6 +56,8 @@ function loadNotes(): Note[] {
                     id: note.id,
                     title: note.title,
                     body: note.body,
+                    courseId:
+                        typeof note.courseId === "string" ? note.courseId : "",
                     createdAt,
                     updatedAt:
                         (
@@ -69,11 +76,28 @@ function loadNotes(): Note[] {
 
 interface NoteCardProps {
     note: Note;
+    courses: Course[];
+    onAssignCourse: (id: string, courseId: string) => void;
     onEdit: (note: Note) => void;
     onDelete: (id: string) => void;
 }
 
-function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
+function CourseOptions({ courses }: { courses: Course[] }) {
+    return courses.map((course) => (
+        <option key={course.id} value={course.id}>
+            {courseKey(course.code, course.section)} — {course.title} (
+            {course.semester})
+        </option>
+    ));
+}
+
+function NoteCard({
+    note,
+    courses,
+    onAssignCourse,
+    onEdit,
+    onDelete,
+}: NoteCardProps) {
     const cardRef = useRef<HTMLElement>(null);
     const [rowSpan, setRowSpan] = useState(1);
 
@@ -108,6 +132,19 @@ function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
             style={{ gridRowEnd: `span ${rowSpan}` }}
         >
             <h2>{note.title || "Untitled note"}</h2>
+            <label className="note-course">
+                <span>Course</span>
+                <select
+                    aria-label={`Course for ${note.title || "Untitled note"}`}
+                    value={note.courseId}
+                    onChange={(event) =>
+                        onAssignCourse(note.id, event.target.value)
+                    }
+                >
+                    <option value="">Unassigned</option>
+                    <CourseOptions courses={courses} />
+                </select>
+            </label>
             {note.body && (
                 <div className="note-markdown">
                     <ReactMarkdown skipHtml>{note.body}</ReactMarkdown>
@@ -133,17 +170,38 @@ function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
     );
 }
 
-export function PlanningNotesPage() {
+export function PlanningNotesPage({
+    courses: sharedCourses,
+}: {
+    courses?: Course[];
+}) {
+    const [savedCourses] = useState(() => sharedCourses ?? loadCourses());
+    const courses = sharedCourses ?? savedCourses;
     const [notes, setNotes] = useState<Note[]>(loadNotes);
     const [editorOpen, setEditorOpen] = useState(false);
+    const [guideOpen, setGuideOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
+    const [courseId, setCourseId] = useState("");
+    const [courseFilter, setCourseFilter] = useState("all");
     const [sortBy, setSortBy] = useState<SortBy>("updatedAt");
 
-    const sortedNotes = [...notes].sort(
-        (first, second) => second[sortBy] - first[sortBy],
-    );
+    const courseIds = new Set(courses.map((course) => course.id));
+    const activeFilter =
+        courseFilter === "all" || courseIds.has(courseFilter) ?
+            courseFilter
+        :   "";
+    const sortedNotes = notes
+        // Notes from deleted courses remain available as unassigned notes.
+        .map((note) => ({
+            ...note,
+            courseId: courseIds.has(note.courseId) ? note.courseId : "",
+        }))
+        .filter(
+            (note) => activeFilter === "all" || note.courseId === activeFilter,
+        )
+        .sort((first, second) => second[sortBy] - first[sortBy]);
 
     useEffect(() => {
         try {
@@ -158,12 +216,14 @@ export function PlanningNotesPage() {
         setEditingId(null);
         setTitle("");
         setBody("");
+        setCourseId("");
     }
 
     function startNewNote() {
         setEditingId(null);
         setTitle("");
         setBody("");
+        setCourseId(activeFilter === "all" ? "" : activeFilter);
         setEditorOpen(true);
     }
 
@@ -171,6 +231,7 @@ export function PlanningNotesPage() {
         setEditingId(note.id);
         setTitle(note.title);
         setBody(note.body);
+        setCourseId(note.courseId);
         setEditorOpen(true);
     }
 
@@ -188,6 +249,7 @@ export function PlanningNotesPage() {
                             ...note,
                             title: nextTitle,
                             body: nextBody,
+                            courseId,
                             updatedAt: Math.max(Date.now(), note.updatedAt + 1),
                         }
                     :   note,
@@ -200,6 +262,7 @@ export function PlanningNotesPage() {
                     id: `${now}-${Math.random().toString(36).slice(2)}`,
                     title: nextTitle,
                     body: nextBody,
+                    courseId,
                     createdAt: now,
                     updatedAt: now,
                 },
@@ -214,20 +277,49 @@ export function PlanningNotesPage() {
         if (editingId === id) closeEditor();
     }
 
+    function assignCourse(id: string, nextCourseId: string) {
+        setNotes((current) =>
+            current.map((note) =>
+                note.id === id ?
+                    {
+                        ...note,
+                        courseId: nextCourseId,
+                        updatedAt: Math.max(Date.now(), note.updatedAt + 1),
+                    }
+                :   note,
+            ),
+        );
+        if (editingId === id) setCourseId(nextCourseId);
+    }
+
     return (
         <section className="planning-notes-page">
             <header className="page-header notes-header">
                 <div>
                     <h1>Planning Notes</h1>
                 </div>
-                <button
-                    className="add-note-button"
-                    type="button"
-                    onClick={startNewNote}
-                >
-                    <span aria-hidden="true">+</span> Add Note
-                </button>
+                <div className="notes-header-actions">
+                    <button
+                        className="add-note-button"
+                        type="button"
+                        onClick={startNewNote}
+                    >
+                        <span aria-hidden="true">+</span> Add Note
+                    </button>
+                    <button
+                        className="markdown-guide-button"
+                        type="button"
+                        aria-haspopup="dialog"
+                        onClick={() => setGuideOpen(true)}
+                    >
+                        Markdown Guide
+                    </button>
+                </div>
             </header>
+
+            {guideOpen && (
+                <MarkdownGuideDialog onClose={() => setGuideOpen(false)} />
+            )}
 
             {editorOpen && (
                 <form className="note-editor" onSubmit={saveNote}>
@@ -240,6 +332,15 @@ export function PlanningNotesPage() {
                         onChange={(event) => setTitle(event.target.value)}
                         autoFocus
                     />
+                    <label htmlFor="note-course">Course</label>
+                    <select
+                        id="note-course"
+                        value={courseId}
+                        onChange={(event) => setCourseId(event.target.value)}
+                    >
+                        <option value="">Unassigned</option>
+                        <CourseOptions courses={courses} />
+                    </select>
                     <label htmlFor="note-body">Note</label>
                     <textarea
                         id="note-body"
@@ -269,17 +370,35 @@ export function PlanningNotesPage() {
 
             {notes.length > 0 && (
                 <div className="notes-toolbar">
-                    <label htmlFor="notes-sort">Sort by</label>
-                    <select
-                        id="notes-sort"
-                        value={sortBy}
-                        onChange={(event) =>
-                            setSortBy(event.target.value as SortBy)
-                        }
-                    >
-                        <option value="updatedAt">Recently edited</option>
-                        <option value="createdAt">Recently added</option>
-                    </select>
+                    <div className="notes-toolbar-field">
+                        <label htmlFor="notes-course-filter">
+                            Filter by course
+                        </label>
+                        <select
+                            id="notes-course-filter"
+                            value={activeFilter}
+                            onChange={(event) =>
+                                setCourseFilter(event.target.value)
+                            }
+                        >
+                            <option value="all">All courses</option>
+                            <option value="">Unassigned</option>
+                            <CourseOptions courses={courses} />
+                        </select>
+                    </div>
+                    <div className="notes-toolbar-field">
+                        <label htmlFor="notes-sort">Sort by</label>
+                        <select
+                            id="notes-sort"
+                            value={sortBy}
+                            onChange={(event) =>
+                                setSortBy(event.target.value as SortBy)
+                            }
+                        >
+                            <option value="updatedAt">Recently edited</option>
+                            <option value="createdAt">Recently added</option>
+                        </select>
+                    </div>
                 </div>
             )}
 
@@ -291,11 +410,18 @@ export function PlanningNotesPage() {
                     <h2>Your notes will appear here</h2>
                     <p>Add a note to capture your first plan or idea.</p>
                 </div>
+            : sortedNotes.length === 0 ?
+                <div className="notes-empty-state">
+                    <h2>No notes for this course</h2>
+                    <p>Add a note or choose another course filter.</p>
+                </div>
             :   <div className="notes-grid" aria-label="Planning notes">
                     {sortedNotes.map((note) => (
                         <NoteCard
                             key={note.id}
                             note={note}
+                            courses={courses}
+                            onAssignCourse={assignCourse}
                             onEdit={editNote}
                             onDelete={deleteNote}
                         />
