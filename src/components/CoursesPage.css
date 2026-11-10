@@ -268,6 +268,9 @@
 .courses-page .course-grid {
     flex: 1 1 0;
     align-content: start;
+    /* Rows keep their cards' full height and the grid scrolls; otherwise
+       the rows squash and each card's text spills over the one below. */
+    grid-auto-rows: max-content;
     min-height: 240px;
     margin: 0;
     overflow-y: auto;

@@ -93,81 +93,94 @@ export function HomePage({
                 />
             )}
 
-            <section
-                className="courses-section"
-                aria-labelledby="courses-title"
-            >
-                <h2 id="courses-title">Current courses</h2>
-                {visibleCourses.length > 0 ?
-                    <div className="course-grid">
-                        {visibleCourses.map((course) => (
-                            <article className="course-card" key={course.id}>
-                                <h3>{course.code}</h3>
-                                <p>{course.title}</p>
-                                <p>
-                                    {course.section ?
-                                        `Section ${course.section} · `
-                                    :   ""}
-                                    {course.semester}
-                                </p>
-                                <button type="button" onClick={onOpenCourse}>
-                                    Open Course Plan
-                                </button>
-                            </article>
-                        ))}
-                    </div>
-                :   <p className="empty-message">
-                        No courses match this selection.
-                    </p>
-                }
-            </section>
-
-            {showTasks && (
-                <section className="todo-section" aria-labelledby="todo-title">
-                    <h2 id="todo-title">
-                        Today&apos;s tasks:{" "}
-                        <time dateTime={today}>
-                            {now.toLocaleDateString("en-US")}
-                        </time>
-                    </h2>
-                    <div className="todo-table-wrap">
-                        <table className="todo-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Course</th>
-                                    <th scope="col">Task</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {todayTasks.map((task) => (
-                                    <tr key={task.id}>
-                                        <th scope="row">{task.course}</th>
-                                        <td>
-                                            <label className="todo-item">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={task.completed}
-                                                    onChange={() =>
-                                                        onToggleTask(task.id)
-                                                    }
-                                                />
-                                                <span>{task.title}</span>
-                                            </label>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {todayTasks.length === 0 && (
-                                    <tr>
-                                        <td colSpan={2}>
-                                            No tasks scheduled for today.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+            <div className={`home-columns${showTasks ? " has-tasks" : ""}`}>
+                <section
+                    className="courses-section"
+                    aria-labelledby="courses-title"
+                >
+                    <h2 id="courses-title">Current courses</h2>
+                    {visibleCourses.length > 0 ?
+                        <div className="course-grid">
+                            {visibleCourses.map((course) => (
+                                <article
+                                    className="course-card"
+                                    key={course.id}
+                                >
+                                    <h3>{course.code}</h3>
+                                    <p>{course.title}</p>
+                                    <p>
+                                        {course.section ?
+                                            `Section ${course.section} · `
+                                        :   ""}
+                                        {course.semester}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={onOpenCourse}
+                                    >
+                                        Open Course Plan
+                                    </button>
+                                </article>
+                            ))}
+                        </div>
+                    :   <p className="empty-message">
+                            No courses match this selection.
+                        </p>
+                    }
                 </section>
-            )}
+
+                {showTasks && (
+                    <section
+                        className="todo-section"
+                        aria-labelledby="todo-title"
+                    >
+                        <h2 id="todo-title">
+                            Today&apos;s tasks:{" "}
+                            <time dateTime={today}>
+                                {now.toLocaleDateString("en-US")}
+                            </time>
+                        </h2>
+                        <div className="todo-table-wrap">
+                            <table className="todo-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Course</th>
+                                        <th scope="col">Task</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {todayTasks.map((task) => (
+                                        <tr key={task.id}>
+                                            <th scope="row">{task.course}</th>
+                                            <td>
+                                                <label className="todo-item">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={task.completed}
+                                                        onChange={() =>
+                                                            onToggleTask(
+                                                                task.id,
+                                                            )
+                                                        }
+                                                    />
+                                                    <span>{task.title}</span>
+                                                </label>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {todayTasks.length === 0 && (
+                                        <tr>
+                                            <td colSpan={2}>
+                                                No tasks scheduled for today.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                )}
+            </div>
         </section>
     );
 }
