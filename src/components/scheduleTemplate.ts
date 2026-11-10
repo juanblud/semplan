@@ -4,6 +4,7 @@ export interface Semester {
     name: string;
     start: string;
     end: string;
+    gradingEnd?: string;
 }
 
 export interface CalendarItem {

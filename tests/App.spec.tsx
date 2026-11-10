@@ -134,9 +134,9 @@ describe("App", () => {
         );
         const view = render(<App />);
         await user.click(screen.getByRole("link", { name: "Calendar" }));
-        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
-            "CISC 275",
-        );
+        expect(
+            screen.getByRole("combobox", { name: "Course" }),
+        ).toHaveDisplayValue("All Courses");
         const calendarItems = localStorage.getItem(
             "semester-planner:calendar-items",
         );
@@ -416,8 +416,10 @@ describe("App", () => {
         const user = userEvent.setup();
         const view = render(<App />);
 
-        await user.click(screen.getByRole("link", { name: "Settings" }));
-        expect(window.location.pathname).toBe("/Settings");
+        await user.click(screen.getByRole("button", { name: "Settings" }));
+        expect(
+            screen.getByRole("dialog", { name: "Settings" }),
+        ).toBeInTheDocument();
         const colorScheme = screen.getByRole("combobox", {
             name: "Color scheme",
         });
@@ -463,16 +465,86 @@ describe("App", () => {
             JSON.parse(localStorage.getItem("semplan:settings") ?? "{}"),
         ).toMatchObject({ colorScheme: "green", darkMode: true });
 
-        await user.click(screen.getByRole("link", { name: "Settings" }));
+        await user.click(screen.getByRole("button", { name: "Settings" }));
         await user.click(screen.getByRole("button", { name: "Student" }));
         expect(
             screen.getByRole("link", { name: "Task View" }),
         ).toBeInTheDocument();
+        await user.click(
+            screen.getByRole("button", { name: "Close settings" }),
+        );
         await user.click(screen.getByRole("link", { name: "Task View" }));
         expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
             "Task View",
         );
         restored.unmount();
+    });
+
+    test("opens settings over the current page without leaving it", async () => {
+        const user = userEvent.setup();
+        window.history.replaceState(null, "", "/Calendar");
+        render(<App />);
+
+        await user.click(screen.getByRole("button", { name: "Settings" }));
+        const dialog = screen.getByRole("dialog", { name: "Settings" });
+        expect(window.location.pathname).toBe("/Calendar");
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+            "Calendar",
+        );
+
+        // Changes apply to the page behind straight away.
+        await user.click(
+            within(dialog).getByRole("checkbox", { name: /Dark Mode/ }),
+        );
+        expect(document.querySelector(".app-shell")).toHaveClass("is-dark");
+
+        await user.click(
+            within(dialog).getByRole("button", { name: "Close settings" }),
+        );
+        expect(
+            screen.queryByRole("dialog", { name: "Settings" }),
+        ).not.toBeInTheDocument();
+
+        // Clicking the blurred area outside the panel closes it too.
+        await user.click(screen.getByRole("button", { name: "Settings" }));
+        await user.click(screen.getByRole("dialog", { name: "Settings" }));
+        expect(
+            screen.queryByRole("dialog", { name: "Settings" }),
+        ).not.toBeInTheDocument();
+        expect(window.location.pathname).toBe("/Calendar");
+    });
+
+    test("closes settings when the dialog is closed with Escape", async () => {
+        const user = userEvent.setup();
+        render(<App />);
+
+        await user.click(screen.getByRole("button", { name: "Settings" }));
+        // Browsers close a modal dialog on Escape and fire "close".
+        fireEvent(
+            screen.getByRole("dialog", { name: "Settings" }),
+            new Event("close"),
+        );
+
+        expect(
+            screen.queryByRole("dialog", { name: "Settings" }),
+        ).not.toBeInTheDocument();
+    });
+
+    test("leaves Task View for Home when switching to Professor over it", async () => {
+        const user = userEvent.setup();
+        window.history.replaceState(null, "", "/Task-View");
+        render(<App />);
+
+        await user.click(screen.getByRole("button", { name: "Settings" }));
+        await user.click(screen.getByRole("button", { name: "Professor" }));
+
+        expect(window.location.pathname).toBe("/Home");
+        expect(
+            document.querySelector(".main-content .home-header h1"),
+        ).toHaveTextContent("SemPlan");
+        expect(
+            screen.queryByRole("link", { name: "Task View" }),
+        ).not.toBeInTheDocument();
     });
 
     test("uses the UD scheme for saved settings without a valid scheme", () => {
@@ -558,9 +630,9 @@ describe("App", () => {
         );
 
         expect(window.location.pathname).toBe("/Calendar");
-        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
-            "CISC 275",
-        );
+        expect(
+            screen.getByRole("combobox", { name: "Course" }),
+        ).toHaveDisplayValue("All Courses");
         expect(screen.getByRole("combobox", { name: "Semester" })).toHaveValue(
             "Fall 2026",
         );

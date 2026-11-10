@@ -1,43 +1,47 @@
 import { useEffect, useRef, useState } from "react";
-import type { DragEvent, FormEvent } from "react";
+import type { CSSProperties, DragEvent, FormEvent } from "react";
 import { AddActivityDialog } from "./AddActivityDialog";
 import type { NewActivity } from "./AddActivityDialog";
+import { AddSemesterButton } from "./AddSemesterButton";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
 import { loadCourses } from "./CoursesPage";
 import {
-    calendarCourses,
     CANCELLED_KEY,
-    courseKey,
     ITEMS_KEY,
     loadCalendarItems,
     loadSaved,
+    REFLECTIONS_KEY,
     WEEK_LABELS_KEY,
     getCalendarSemesters,
 } from "./calendarStorage";
-import type { WeekLabel } from "./calendarStorage";
+import type { WeekLabel, WeekReflection } from "./calendarStorage";
 import type { CalendarItem } from "./scheduleTemplate";
+import type { Role } from "./SettingsPage";
+import { WeekReflectionPanel } from "./WeekReflectionPanel";
 import "./CalendarPage.css";
 import {
     WEEKDAYS,
     addDays,
     formatLongDate,
     formatTime,
+    formatWeekRange,
     getMonthGrid,
     getSemesterWeek,
     getSemesterWeekCount,
     getSemesterWeekStart,
+    getWeek,
     parseDateKey,
     startOfMonth,
     toDateKey,
 } from "./calendarDates";
-
-interface Course {
-    code: string;
-    meetingDays: number[];
-    meetingTime: string;
-    startDate?: string;
-    endDate?: string;
-}
+import {
+    classKey,
+    getStartMinutes,
+    isClassMeeting,
+    toScheduledCourse,
+} from "./courseSchedule";
+import type { ScheduledCourse as Course } from "./courseSchedule";
+import { useSelectedSemester } from "./useSelectedSemester";
 
 interface GoogleCalendarEvent {
     id: string;
@@ -91,62 +95,11 @@ function save<T>(key: string, value: T[]) {
     }
 }
 
-function classKey(courseCode: string, date: string): string {
-    return `${courseCode}|${date}`;
-}
-
 // Timestamped so ids stay unique across page reloads.
 let itemCount = 0;
 function createItemId(kind: CalendarItem["kind"]): string {
     itemCount += 1;
     return `${kind}-${Date.now().toString(36)}-${itemCount}`;
-}
-
-// "1:50 PM - 2:45 PM" starts at 13:50. A start with no AM or PM shares the
-// end's, unless that would put it after the end ("11:00 - 12:15 PM").
-function getStartMinutes(meetingTime: string): number {
-    const match = meetingTime.match(
-        /^(\d{1,2}):(\d{2})(?: (AM|PM))? - (\d{1,2}):\d{2} (AM|PM)$/,
-    );
-    if (!match) {
-        return Infinity;
-    }
-    // An optional group that didn't match is undefined.
-    const [, hour, minute, startPeriod, endHour, endPeriod] = match as (
-        string | undefined
-    )[];
-    const otherPeriod = endPeriod === "PM" ? "AM" : "PM";
-    const period =
-        startPeriod ??
-        (Number(hour) % 12 > Number(endHour) % 12 ? otherPeriod : endPeriod);
-    return (
-        ((Number(hour) % 12) + (period === "PM" ? 12 : 0)) * 60 + Number(minute)
-    );
-}
-
-function getWeek(date: Date): Date[] {
-    const weekStart = addDays(date, -date.getDay());
-    return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-}
-
-// e.g. "October 11–17, 2026" or "September 27 – October 3, 2026".
-function formatWeekRange(start: Date, end: Date): string {
-    const sameYear = start.getFullYear() === end.getFullYear();
-    if (sameYear && start.getMonth() === end.getMonth()) {
-        const month = start.toLocaleDateString("en-US", { month: "long" });
-        return `${month} ${start.getDate()}–${end.getDate()}, ${end.getFullYear()}`;
-    }
-    const startText = start.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: sameYear ? undefined : "numeric",
-    });
-    const endText = end.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-    });
-    return `${startText} – ${endText}`;
 }
 
 // All-day Google events have an exclusive end date and may span several days.
@@ -167,51 +120,36 @@ function getEventDateKeys(event: GoogleCalendarEvent): string[] {
     return keys;
 }
 
-export function CalendarPage() {
+// Blocks, and the topics and activities inside them, take their course's color.
+function courseColorStyle(color?: string): CSSProperties | undefined {
+    return color ? ({ "--course-color": color } as CSSProperties) : undefined;
+}
+
+export function CalendarPage({ role = "student" }: { role?: Role }) {
     const [savedCourses] = useState(loadCourses);
     const semesters = getCalendarSemesters(savedCourses);
-    const [semesterName, setSemesterName] = useState(semesters[0].name);
-    const [courseCode, setCourseCode] = useState("");
+    const [semesterName, setSemesterName] = useSelectedSemester(
+        semesters.map((option) => option.name),
+    );
+    const semester =
+        semesters.find((option) => option.name === semesterName) ??
+        semesters[0];
+    const [courseCode, setCourseCode] = useState(ALL_COURSES);
     const courses: Course[] = savedCourses
         .filter((course) => course.semester === semesterName)
-        .map((course) => {
-            const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-            const meetingDays = course.schedule.match(
-                /\b(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\b/g,
-            );
-            const defaultCourse = calendarCourses.find(
-                (option) =>
-                    option.code.replace(/\s/g, "").toLowerCase() ===
-                    course.code.replace(/\s/g, "").toLowerCase(),
-            );
-            return {
-                code: courseKey(course.code, course.section),
-                // "Mon / Wed 1:50 PM - 2:45 PM" meets at "1:50 PM - 2:45 PM".
-                meetingTime:
-                    course.schedule.match(/\d{1,2}:\d{2}.*$/)?.[0] ?? "",
-                startDate: course.startDate,
-                endDate: course.endDate,
-                meetingDays:
-                    meetingDays ?
-                        [
-                            ...new Set(
-                                meetingDays.map((day) => weekdays.indexOf(day)),
-                            ),
-                        ]
-                    : !course.schedule.trim() && !course.section ?
-                        (defaultCourse?.meetingDays ?? [])
-                    :   [],
-            };
-        });
+        .map(toScheduledCourse);
     const [view, setView] = useState<CalendarView>("month");
     // The week highlighted in the monthly view: the current week to start
     // with, then the last one chosen or shown in the weekly view.
     const [selectedWeek, setSelectedWeek] = useState<number | null>(() =>
-        getSemesterWeek(new Date(), semesters[0].start, semesters[0].end),
+        getSemesterWeek(new Date(), semester.start, semester.end),
     );
     // The day the calendar is centred on: its month in the monthly view, its
-    // week in the weekly view.
-    const [focusDate, setFocusDate] = useState(() => new Date());
+    // week in the weekly view. It opens on today, or on the semester's start
+    // when today is outside the semester.
+    const [focusDate, setFocusDate] = useState(() =>
+        selectedWeek === null ? parseDateKey(semester.start) : new Date(),
+    );
     const [items, setItems] = useState<CalendarItem[]>(loadCalendarItems);
     const [cancelledClasses, setCancelledClasses] = useState<string[]>(() =>
         loadSaved<string>(CANCELLED_KEY, []),
@@ -228,11 +166,11 @@ export function CalendarPage() {
     const [weekLabels, setWeekLabels] = useState<WeekLabel[]>(() =>
         loadSaved<WeekLabel>(WEEK_LABELS_KEY, []),
     );
+    const [reflections, setReflections] = useState<WeekReflection[]>(() =>
+        loadSaved<WeekReflection>(REFLECTIONS_KEY, []),
+    );
     const addActivityButton = useRef<HTMLButtonElement>(null);
 
-    const semester =
-        semesters.find((option) => option.name === semesterName) ??
-        semesters[0];
     const course = courses.find((option) => option.code === courseCode) ??
         courses.at(0) ?? { code: "", meetingDays: [], meetingTime: "" };
     const hasCourse = courses.length > 0;
@@ -268,6 +206,10 @@ export function CalendarPage() {
     useEffect(() => {
         save(WEEK_LABELS_KEY, weekLabels);
     }, [weekLabels]);
+
+    useEffect(() => {
+        save(REFLECTIONS_KEY, reflections);
+    }, [reflections]);
 
     useEffect(() => {
         if (!GOOGLE_API_KEY) {
@@ -369,6 +311,42 @@ export function CalendarPage() {
         ]);
     }
 
+    function getReflection(week: number): WeekReflection | undefined {
+        return reflections.find(
+            (entry) =>
+                entry.week === week &&
+                entry.course === course.code &&
+                entry.semester === semesterName,
+        );
+    }
+
+    // A reflection emptied of everything is removed rather than stored blank.
+    function updateReflection(week: number, changes: Partial<WeekReflection>) {
+        const next: WeekReflection = {
+            ...getReflection(week),
+            ...changes,
+            course: course.code,
+            semester: semesterName,
+            week,
+        };
+        const isEmpty =
+            !next.confidence &&
+            !next.understood?.trim() &&
+            !next.struggled?.trim() &&
+            !next.plan?.trim();
+        setReflections((current) => [
+            ...current.filter(
+                (entry) =>
+                    !(
+                        entry.week === week &&
+                        entry.course === course.code &&
+                        entry.semester === semesterName
+                    ),
+            ),
+            ...(isEmpty ? [] : [next]),
+        ]);
+    }
+
     // The weekly view jumps to the week. The monthly view highlights it, and
     // only changes month when the week isn't on screen, going to the month
     // that holds most of it. Choosing the highlighted week again clears it.
@@ -393,21 +371,12 @@ export function CalendarPage() {
         (item) => item.kind === "topic" && !item.date,
     );
 
-    function isClassMeeting(date: Date, meetingCourse = course): boolean {
-        const key = toDateKey(date);
-        return (
-            hasCourse &&
-            key >= (meetingCourse.startDate || semester.start) &&
-            key <= (meetingCourse.endDate || semester.end) &&
-            meetingCourse.meetingDays.includes(date.getDay()) &&
-            !cancelledClasses.includes(classKey(meetingCourse.code, key))
-        );
-    }
-
     // Earliest first, so back-to-back classes stack in the order they meet.
     function getMeetings(date: Date): Course[] {
         return visibleCourses
-            .filter((option) => isClassMeeting(date, option))
+            .filter((option) =>
+                isClassMeeting(date, option, semester, cancelledClasses),
+            )
             .sort(
                 (a, b) =>
                     getStartMinutes(a.meetingTime) -
@@ -502,12 +471,15 @@ export function CalendarPage() {
 
     function changeSemester(name: string) {
         setSemesterName(name);
-        setCourseCode("");
+        setCourseCode(ALL_COURSES);
         setTopicDraft(null);
         setLastCancelled(null);
         setOpenClass(null);
         setAddingActivity(false);
-        const next = semesters.find((option) => option.name === name);
+        // Looked up fresh because the semester may have only just been added.
+        const next = getCalendarSemesters(savedCourses).find(
+            (option) => option.name === name,
+        );
         // Today's week, or nothing when today is outside the new semester.
         setSelectedWeek(
             next ? getSemesterWeek(new Date(), next.start, next.end) : null,
@@ -659,6 +631,10 @@ export function CalendarPage() {
             <div
                 key={activity.id}
                 className={className}
+                style={courseColorStyle(
+                    courses.find((option) => option.code === activity.course)
+                        ?.color,
+                )}
                 role="group"
                 aria-label={title}
                 draggable
@@ -729,6 +705,7 @@ export function CalendarPage() {
             <div
                 key={meeting.code}
                 className={className}
+                style={courseColorStyle(meeting.color)}
                 onClick={(event) => {
                     const clicked = event.target as Element;
                     if (
@@ -851,6 +828,9 @@ export function CalendarPage() {
                         {event.summary ?? "Busy"}
                     </p>
                 ))}
+                {role === "professor" && key === semester.gradingEnd && (
+                    <p className="calendar-event">Grading period ends</p>
+                )}
                 {meetings.map((meeting) =>
                     renderMeeting(meeting, date, dayItems),
                 )}
@@ -875,17 +855,26 @@ export function CalendarPage() {
                 className="calendar-toolbar"
                 aria-label="Calendar controls"
             >
-                <label>
-                    <span>Semester</span>
-                    <select
-                        value={semesterName}
-                        onChange={(event) => changeSemester(event.target.value)}
-                    >
-                        {semesters.map((option) => (
-                            <option key={option.name}>{option.name}</option>
-                        ))}
-                    </select>
-                </label>
+                <div className="semester-with-add">
+                    <label>
+                        <span>Semester</span>
+                        <select
+                            value={semesterName}
+                            onChange={(event) =>
+                                changeSemester(event.target.value)
+                            }
+                        >
+                            {semesters.map((option) => (
+                                <option key={option.name}>{option.name}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <AddSemesterButton
+                        existing={semesters.map((option) => option.name)}
+                        role={role}
+                        onAdd={changeSemester}
+                    />
+                </div>
                 {/* PLACEHOLDER: the semester's first and last day drive the
                     week numbers. These show the built-in dates for now; they
                     will become editable once they are tied in with the course
@@ -1005,6 +994,21 @@ export function CalendarPage() {
                 </div>
             )}
 
+            {hasCourse && view === "week" && focusWeek !== null && !showAll && (
+                <WeekReflectionPanel
+                    role={role}
+                    week={focusWeek}
+                    reflection={getReflection(focusWeek)}
+                    previousPlan={getReflection(focusWeek - 1)?.plan ?? ""}
+                    onChange={(changes) => updateReflection(focusWeek, changes)}
+                />
+            )}
+            {hasCourse && view === "week" && focusWeek !== null && showAll && (
+                <p className="calendar-reflection-hint">
+                    Choose a single course to reflect on this week.
+                </p>
+            )}
+
             {/* DRAFT idea 3: a numbered strip of every semester week, to jump
                 straight to one. Labelled weeks show their label. */}
             {hasCourse && (
@@ -1018,6 +1022,7 @@ export function CalendarPage() {
                         const className = [
                             label && "has-label",
                             week === todayWeek && "is-current",
+                            !showAll && getReflection(week) && "has-reflection",
                         ]
                             .filter(Boolean)
                             .join(" ");

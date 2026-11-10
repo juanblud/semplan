@@ -10,6 +10,24 @@ export const semesters: Semester[] = [
     { name: "Spring 2027", start: "2027-02-08", end: "2027-05-17" },
 ];
 
+// Semesters people have added themselves, on top of the built-in ones.
+export const CUSTOM_SEMESTERS_KEY = "semester-planner:custom-semesters";
+
+export function loadSaved<T>(key: string, fallback: T[]): T[] {
+    try {
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            const parsed = JSON.parse(saved) as T[] | null;
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        }
+    } catch {
+        // Storage can be blocked or hold bad data; fall back to the defaults.
+    }
+    return fallback;
+}
+
 interface SemesterCourse {
     semester: string;
     startDate?: string;
@@ -35,13 +53,19 @@ function semesterOrderDate(term: Semester): string {
 // Include every saved course's term. New terms use their course date ranges,
 // falling back to the configured season's dates in the requested year.
 export function getCalendarSemesters(courses: SemesterCourse[]): Semester[] {
+    const knownSemesters = [
+        ...semesters,
+        ...loadSaved<Semester>(CUSTOM_SEMESTERS_KEY, []),
+    ];
     const names = new Set([
-        ...semesters.map((term) => term.name),
+        ...knownSemesters.map((term) => term.name),
         ...courses.map((course) => course.semester),
     ]);
     return [...names]
         .map((name) => {
-            const configured = semesters.find((term) => term.name === name);
+            const configured = knownSemesters.find(
+                (term) => term.name === name,
+            );
             if (configured) return configured;
             const termCourses = courses.filter(
                 (course) => course.semester === name,
@@ -154,19 +178,18 @@ export const ITEMS_KEY = "semester-planner:calendar-items";
 // Cancelled classes are stored as "COURSE|YYYY-MM-DD".
 export const CANCELLED_KEY = "semester-planner:cancelled-classes";
 
-export function loadSaved<T>(key: string, fallback: T[]): T[] {
+export function addCustomSemester(semester: Semester) {
     try {
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            const parsed = JSON.parse(saved) as T[] | null;
-            if (Array.isArray(parsed)) {
-                return parsed;
-            }
-        }
+        localStorage.setItem(
+            CUSTOM_SEMESTERS_KEY,
+            JSON.stringify([
+                ...loadSaved<Semester>(CUSTOM_SEMESTERS_KEY, []),
+                semester,
+            ]),
+        );
     } catch {
-        // Storage can be blocked or hold bad data; fall back to the defaults.
+        // Storage is full or blocked, so the semester can't be kept.
     }
-    return fallback;
 }
 
 export function loadCalendarItems(): CalendarItem[] {
@@ -193,3 +216,16 @@ export interface WeekLabel {
 }
 
 export const WEEK_LABELS_KEY = "semester-planner:week-labels";
+
+// One course's end-of-week reflection. Its plan is shown back the next week.
+export interface WeekReflection {
+    course: string;
+    semester: string;
+    week: number;
+    confidence?: number;
+    understood?: string;
+    struggled?: string;
+    plan?: string;
+}
+
+export const REFLECTIONS_KEY = "semester-planner:week-reflections";

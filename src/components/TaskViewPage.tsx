@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import type { Task } from "../tasks";
+import { AddSemesterButton } from "./AddSemesterButton";
 import type { Course } from "./CoursesPage";
 import { getCalendarSemesters } from "./calendarStorage";
+import { useSelectedSemester } from "./useSelectedSemester";
 
 interface TaskViewPageProps {
     courses: Course[];
@@ -20,7 +22,9 @@ function normalizeCourseCode(code: string): string {
 }
 
 export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
-    const [semester, setSemester] = useState("Fall 2026");
+    const semesters = getCalendarSemesters([...courses, ...tasks]);
+    const semesterNames = semesters.map((term) => term.name);
+    const [semester, setSemester] = useSelectedSemester(semesterNames);
     const [title, setTitle] = useState("");
     const [course, setCourse] = useState("All");
     const [section, setSection] = useState("All");
@@ -28,7 +32,11 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
     const [finishDate, setFinishDate] = useState("");
     const [editingId, setEditingId] = useState<number | null>(null);
     const titleInput = useRef<HTMLInputElement>(null);
-    const semesters = getCalendarSemesters([...courses, ...tasks]);
+    function changeSemester(name: string) {
+        setSemester(name);
+        setCourse("All");
+        setSection("All");
+    }
     const semesterCourses = courses.filter(
         (item) => item.semester === semester,
     );
@@ -149,22 +157,26 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                             onChange={(event) => setTitle(event.target.value)}
                         />
                     </label>
-                    <label className="task-semester-field">
-                        Semester
-                        <select
-                            required
-                            value={semester}
-                            onChange={(event) => {
-                                setSemester(event.target.value);
-                                setCourse("All");
-                                setSection("All");
-                            }}
-                        >
-                            {semesters.map((term) => (
-                                <option key={term.name}>{term.name}</option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="task-semester-field semester-with-add">
+                        <label>
+                            Semester
+                            <select
+                                required
+                                value={semester}
+                                onChange={(event) =>
+                                    changeSemester(event.target.value)
+                                }
+                            >
+                                {semesterNames.map((term) => (
+                                    <option key={term}>{term}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <AddSemesterButton
+                            existing={semesterNames}
+                            onAdd={changeSemester}
+                        />
+                    </div>
                     <label>
                         Class
                         <select

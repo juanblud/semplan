@@ -15,6 +15,14 @@ async function showOctober2026(user: User) {
     await user.click(screen.getByRole("button", { name: "Next month" }));
 }
 
+// The calendar opens on All Courses; these tests are about a single course.
+async function chooseCourse(user: User, code = "CISC 275") {
+    await user.selectOptions(
+        screen.getByRole("combobox", { name: "Course" }),
+        code,
+    );
+}
+
 function getDay(label: string) {
     return screen.getByRole("cell", { name: label });
 }
@@ -77,6 +85,7 @@ describe("CalendarPage", () => {
             expect(
                 screen.getByRole("heading", { name: month }),
             ).toBeInTheDocument();
+            await chooseCourse(user);
             expect(
                 screen.getByRole("combobox", { name: "Course" }),
             ).toHaveValue("CISC 275");
@@ -156,7 +165,7 @@ describe("CalendarPage", () => {
             const courseSelect = screen.getByRole("combobox", {
                 name: "Course",
             });
-            expect(courseSelect).toHaveValue("CISC 275");
+            expect(courseSelect).toHaveDisplayValue("All Courses");
             expect(
                 within(courseSelect).getByRole("option", { name: "CISC 320" }),
             ).toBeInTheDocument();
@@ -323,13 +332,14 @@ describe("CalendarPage", () => {
 
         view.unmount();
         render(<CalendarPage />);
-        expect(screen.getByText("Fall topic")).toBeInTheDocument();
-        expect(screen.queryByText("New spring topic")).not.toBeInTheDocument();
+        expect(screen.getByText("New spring topic")).toBeInTheDocument();
+        expect(screen.queryByText("Fall topic")).not.toBeInTheDocument();
         await user.selectOptions(
             screen.getByRole("combobox", { name: "Semester" }),
-            "Spring 2027",
+            "Fall 2026",
         );
-        expect(screen.getByText("New spring topic")).toBeInTheDocument();
+        expect(screen.getByText("Fall topic")).toBeInTheDocument();
+        expect(screen.queryByText("New spring topic")).not.toBeInTheDocument();
     });
 
     test("keeps topics and class meetings separate for sections of the same course", async () => {
@@ -374,6 +384,7 @@ describe("CalendarPage", () => {
 
         render(<CalendarPage />);
         await showOctober2026(user);
+        await chooseCourse(user, "CISC 275 - Section 010");
         const courseSelect = screen.getByRole("combobox", { name: "Course" });
         // Both sections, plus All Courses.
         expect(within(courseSelect).getAllByRole("option")).toHaveLength(3);
@@ -603,9 +614,9 @@ describe("CalendarPage", () => {
         expect(
             screen.queryByText(/No courses in this semester/),
         ).not.toBeInTheDocument();
-        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
-            "CISC 275",
-        );
+        expect(
+            screen.getByRole("combobox", { name: "Course" }),
+        ).toHaveDisplayValue("All Courses");
         expect(screen.getByRole("combobox", { name: "Course" })).toBeEnabled();
         expect(
             screen.getByRole("button", { name: "+ Add Activity" }),
@@ -619,6 +630,7 @@ describe("CalendarPage", () => {
         const user = userEvent.setup();
         render(<CalendarPage />);
         await showOctober2026(user);
+        await chooseCourse(user);
 
         const monday = getDay("Monday, October 12, 2026");
         expect(within(monday).getByText("Class Meeting")).toBeInTheDocument();
@@ -650,6 +662,7 @@ describe("CalendarPage", () => {
         const user = userEvent.setup();
         render(<CalendarPage />);
         await showOctober2026(user);
+        await chooseCourse(user);
 
         const unscheduled = screen.getByRole("complementary", {
             name: "Unscheduled topics",
@@ -735,6 +748,106 @@ describe("CalendarPage", () => {
             });
         }
 
+        test("keeps a weekly reflection and shows its plan the next week", async () => {
+            const user = setupUser();
+            const view = render(<CalendarPage />);
+            await chooseCourse(user);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+
+            await user.click(screen.getByText("Reflect on week 7"));
+            await user.click(screen.getByRole("button", { name: "Shaky" }));
+            await user.type(
+                screen.getByRole("textbox", {
+                    name: "What will you do differently next week?",
+                }),
+                "Start the reading earlier",
+            );
+            expect(
+                screen.getByRole("button", { name: "Shaky" }),
+            ).toHaveAttribute("aria-pressed", "true");
+            const strip = screen.getByRole("navigation", {
+                name: "Semester weeks",
+            });
+            expect(
+                within(strip).getByRole("button", { name: "7" }),
+            ).toHaveClass("has-reflection");
+
+            // The plan comes back the following week, and survives a reload.
+            view.unmount();
+            render(<CalendarPage />);
+            await chooseCourse(user);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+            await user.click(screen.getByRole("button", { name: "Next week" }));
+            expect(
+                screen.getByText("Last week you planned to:"),
+            ).toBeInTheDocument();
+            expect(
+                screen.getByText("Start the reading earlier"),
+            ).toBeInTheDocument();
+
+            // Clearing everything removes the reflection.
+            await user.click(
+                screen.getByRole("button", { name: "Previous week" }),
+            );
+            await user.click(screen.getByRole("button", { name: "Shaky" }));
+            await user.clear(
+                screen.getByRole("textbox", {
+                    name: "What will you do differently next week?",
+                }),
+            );
+            expect(
+                within(
+                    screen.getByRole("navigation", { name: "Semester weeks" }),
+                ).getByRole("button", { name: "7" }),
+            ).not.toHaveClass("has-reflection");
+        });
+
+        test("clears a weekly reflection with the Clear button", async () => {
+            const user = setupUser();
+            render(<CalendarPage />);
+            await chooseCourse(user);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+            await user.click(screen.getByText("Reflect on week 7"));
+
+            // There is nothing to clear until something has been entered.
+            expect(
+                screen.queryByRole("button", { name: "Clear" }),
+            ).not.toBeInTheDocument();
+
+            const planField = screen.getByRole("textbox", {
+                name: "What will you do differently next week?",
+            });
+            await user.click(screen.getByRole("button", { name: "Shaky" }));
+            await user.type(planField, "Start the reading earlier");
+            await user.click(screen.getByRole("button", { name: "Clear" }));
+
+            expect(planField).toHaveValue("");
+            expect(
+                screen.getByRole("button", { name: "Shaky" }),
+            ).toHaveAttribute("aria-pressed", "false");
+            expect(
+                within(
+                    screen.getByRole("navigation", { name: "Semester weeks" }),
+                ).getByRole("button", { name: "7" }),
+            ).not.toHaveClass("has-reflection");
+            expect(
+                screen.queryByRole("button", { name: "Clear" }),
+            ).not.toBeInTheDocument();
+        });
+
+        test("words the weekly reflection for professors", async () => {
+            const user = setupUser();
+            render(<CalendarPage role="professor" />);
+            await chooseCourse(user);
+            await user.click(screen.getByRole("button", { name: "Weekly" }));
+
+            expect(
+                screen.getByRole("textbox", {
+                    name: "Where did students struggle?",
+                }),
+            ).toBeInTheDocument();
+        });
+
         test("highlights the current week in the monthly view to start", () => {
             render(<CalendarPage />);
 
@@ -755,6 +868,7 @@ describe("CalendarPage", () => {
         test("opens on the current week and lays out class days", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
 
             await user.click(screen.getByRole("button", { name: "Weekly" }));
             expect(
@@ -819,6 +933,7 @@ describe("CalendarPage", () => {
         const user = userEvent.setup();
         render(<CalendarPage />);
         await showOctober2026(user);
+        await chooseCourse(user);
 
         const tuesday = getDay("Tuesday, October 13, 2026");
         fireEvent.dragStart(screen.getByText("Forms"), {
@@ -848,6 +963,7 @@ describe("CalendarPage", () => {
         test("adds an activity from the dialog", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
 
             await user.click(
                 screen.getByRole("button", { name: "+ Add Activity" }),
@@ -961,15 +1077,15 @@ describe("CalendarPage", () => {
             view.unmount();
             render(<CalendarPage />);
             expect(
-                screen.queryByRole("group", { name: "Spring quiz" }),
-            ).not.toBeInTheDocument();
-            await user.selectOptions(
-                screen.getByRole("combobox", { name: "Semester" }),
-                "Spring 2027",
-            );
-            expect(
                 screen.getByRole("group", { name: "Spring quiz" }),
             ).toBeInTheDocument();
+            await user.selectOptions(
+                screen.getByRole("combobox", { name: "Semester" }),
+                "Fall 2026",
+            );
+            expect(
+                screen.queryByRole("group", { name: "Spring quiz" }),
+            ).not.toBeInTheDocument();
         });
 
         test("closes the dialog with Escape", async () => {
@@ -989,6 +1105,7 @@ describe("CalendarPage", () => {
         test("creates a topic that can be dragged onto a class meeting", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
             const unscheduled = screen.getByRole("complementary", {
                 name: "Unscheduled topics",
             });
@@ -1021,6 +1138,7 @@ describe("CalendarPage", () => {
         test("adds topics to an existing activity and deletes them", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
             const unscheduled = screen.getByRole("complementary", {
                 name: "Unscheduled topics",
             });
@@ -1050,6 +1168,7 @@ describe("CalendarPage", () => {
         test("deletes an activity and returns its topics", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
             const unscheduled = screen.getByRole("complementary", {
                 name: "Unscheduled topics",
             });
@@ -1073,6 +1192,7 @@ describe("CalendarPage", () => {
         test("moves a scheduled topic into a new activity on a non-class day", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
 
             await user.click(
                 screen.getByRole("button", { name: "+ Add Activity" }),
@@ -1115,6 +1235,7 @@ describe("CalendarPage", () => {
         test("deletes a topic from a class meeting", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
 
             await user.click(
                 within(getDay("Monday, October 12, 2026")).getByRole("button", {
@@ -1129,6 +1250,7 @@ describe("CalendarPage", () => {
         test("cancels a class and can undo it", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
             const unscheduled = screen.getByRole("complementary", {
                 name: "Unscheduled topics",
             });
@@ -1171,6 +1293,7 @@ describe("CalendarPage", () => {
         test("shows what is left on a cancelled class day in the week view", async () => {
             const user = setupUser();
             render(<CalendarPage />);
+            await chooseCourse(user);
             await user.click(screen.getByRole("button", { name: "Weekly" }));
 
             for (const day of [
@@ -1204,6 +1327,7 @@ describe("CalendarPage", () => {
         test("remembers cancelled classes after a reload", async () => {
             const user = setupUser();
             const { unmount } = render(<CalendarPage />);
+            await chooseCourse(user);
 
             await user.click(
                 screen.getByRole("button", {
@@ -1215,6 +1339,7 @@ describe("CalendarPage", () => {
             );
             unmount();
             render(<CalendarPage />);
+            await chooseCourse(user);
 
             expect(
                 within(getDay("Wednesday, October 14, 2026")).queryByText(

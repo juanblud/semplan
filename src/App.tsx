@@ -8,15 +8,15 @@ import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage, loadCourses } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
 import { PlanningNotesPage } from "./components/PlanningNotesPage";
-import { SettingsPage } from "./components/SettingsPage";
+import { SettingsDialog } from "./components/SettingsPage";
 import type { ColorScheme, Role, Settings } from "./components/SettingsPage";
 import { TaskViewPage } from "./components/TaskViewPage";
 import { WelcomeRoleDialog } from "./components/WelcomeRoleDialog";
 
 import { initialTasks } from "./tasks";
+import type { Task } from "./tasks";
 
-type Page =
-    "home" | "courses" | "calendar" | "planning-notes" | "tasks" | "settings";
+type Page = "home" | "courses" | "calendar" | "planning-notes" | "tasks";
 const SETTINGS_KEY = "semplan:settings";
 const logos: Record<ColorScheme, string> = {
     ud: semPlanLogo,
@@ -77,7 +77,6 @@ const navigation: NavigationItem[] = [
         path: "Planning-Notes",
     },
     { id: "tasks", label: "Task View", icon: "📋", path: "Task-View" },
-    { id: "settings", label: "Settings", icon: "⚙️", path: "Settings" },
 ];
 
 // Vite serves the site from "/" locally and "/<repo>/" on GitHub Pages.
@@ -104,14 +103,25 @@ function getPageFromUrl(role: Role): Page {
         :   (requested ?? "home");
 }
 
-export function App() {
+export function App({
+    startingTasks = initialTasks,
+}: {
+    startingTasks?: Task[];
+}) {
     const [settings, setSettings] = useState(loadSettings);
-    const [tasks, setTasks] = useState(initialTasks);
+    const [tasks, setTasks] = useState(startingTasks);
     const [courses, setCourses] = useState(loadCourses);
     const [collapsed, setCollapsed] = useState<boolean>(false);
-    const [page, setPage] = useState<Page>(() =>
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [chosenPage, setPage] = useState<Page>(() =>
         settings.roleSelected ? getPageFromUrl(settings.role) : "home",
     );
+    // Settings open over the page, so switching to Professor there can leave
+    // Task View chosen; professors don't get Task View, so they see Home.
+    const page =
+        chosenPage === "tasks" && settings.role === "professor" ?
+            "home"
+        :   chosenPage;
 
     useEffect(() => {
         try {
@@ -209,6 +219,19 @@ export function App() {
                                 <span className="nav-label">{item.label}</span>
                             </a>
                         ))}
+                    <button
+                        type="button"
+                        className={`nav-link${settingsOpen ? " active" : ""}`}
+                        aria-label="Settings"
+                        aria-haspopup="dialog"
+                        title={collapsed ? "Settings" : undefined}
+                        onClick={() => setSettingsOpen(true)}
+                    >
+                        <span className="nav-icon" aria-hidden="true">
+                            ⚙️
+                        </span>
+                        <span className="nav-label">Settings</span>
+                    </button>
                 </nav>
             </aside>
 
@@ -217,6 +240,7 @@ export function App() {
                     <HomePage
                         courses={courses}
                         tasks={tasks}
+                        role={settings.role}
                         showTasks={settings.role === "student"}
                         onToggleTask={(id) =>
                             setTasks((current) =>
@@ -237,14 +261,13 @@ export function App() {
                         courses={courses}
                         onCoursesChange={setCourses}
                         tasks={tasks}
+                        role={settings.role}
                         onPlanInCalendar={() => navigate("calendar")}
                     />
                 : page === "calendar" ?
-                    <CalendarPage />
+                    <CalendarPage role={settings.role} />
                 : page === "planning-notes" ?
                     <PlanningNotesPage courses={courses} />
-                : page === "settings" ?
-                    <SettingsPage settings={settings} onChange={setSettings} />
                 :   <TaskViewPage
                         courses={courses}
                         tasks={tasks}
@@ -252,6 +275,13 @@ export function App() {
                     />
                 }
             </main>
+            {settingsOpen && (
+                <SettingsDialog
+                    settings={settings}
+                    onChange={setSettings}
+                    onClose={() => setSettingsOpen(false)}
+                />
+            )}
             {!settings.roleSelected && (
                 <WelcomeRoleDialog onSelect={selectInitialRole} />
             )}

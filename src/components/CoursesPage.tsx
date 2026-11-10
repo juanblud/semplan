@@ -17,6 +17,9 @@ import { ScheduleTemplateActions } from "./ScheduleTemplateActions";
 import { MeetingScheduleFields } from "./MeetingScheduleFields";
 import type { MeetingSchedule, MeetingTime } from "./MeetingScheduleFields";
 import { parseDateKey } from "./calendarDates";
+import { AddSemesterButton } from "./AddSemesterButton";
+import type { Role } from "./SettingsPage";
+import { useSelectedSemester } from "./useSelectedSemester";
 
 export interface Course {
     id: string;
@@ -152,11 +155,13 @@ export function CoursesPage({
     onCoursesChange,
     tasks = [],
     onPlanInCalendar,
+    role,
 }: {
     courses?: Course[];
     onCoursesChange?: (courses: Course[]) => void;
     tasks?: Task[];
     onPlanInCalendar?: (course: CalendarCourseSelection) => void;
+    role?: Role;
 }) {
     const [localCourses, setLocalCourses] = useState(
         () => sharedCourses ?? loadCourses(),
@@ -167,7 +172,8 @@ export function CoursesPage({
         setLocalCourses(next);
         onCoursesChange?.(next);
     }
-    const [semester, setSemester] = useState("Fall 2026");
+    const semesters = calendarSemesters.map((term) => term.name);
+    const [semester, setSemester] = useSelectedSemester(semesters);
     const [search, setSearch] = useState("");
     const [draft, setDraft] = useState<Course | null>(null);
     const [meeting, setMeeting] = useState(() => parseMeetingSchedule(""));
@@ -181,7 +187,6 @@ export function CoursesPage({
     const [error, setError] = useState("");
     const [storageError, setStorageError] = useState("");
     const dialog = useRef<HTMLDialogElement>(null);
-    const semesters = calendarSemesters.map((term) => term.name);
     function updateCourses(update: (current: Course[]) => Course[]): boolean {
         const next = update(courses);
         setCourses(next);
@@ -451,17 +456,26 @@ export function CoursesPage({
                 <h1>Courses</h1>
             </header>
             <div className="course-toolbar" aria-label="Course controls">
-                <label>
-                    Semester
-                    <select
-                        value={semester}
-                        onChange={(event) => setSemester(event.target.value)}
-                    >
-                        {semesters.map((term) => (
-                            <option key={term}>{term}</option>
-                        ))}
-                    </select>
-                </label>
+                <div className="semester-with-add">
+                    <label>
+                        Semester
+                        <select
+                            value={semester}
+                            onChange={(event) =>
+                                setSemester(event.target.value)
+                            }
+                        >
+                            {semesters.map((term) => (
+                                <option key={term}>{term}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <AddSemesterButton
+                        existing={semesters}
+                        role={role}
+                        onAdd={setSemester}
+                    />
+                </div>
                 <label>
                     Search by course code or title
                     <input
