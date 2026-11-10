@@ -268,8 +268,6 @@ export function App({
                     <CalendarPage role={settings.role} />
                 : page === "planning-notes" ?
                     <PlanningNotesPage courses={courses} />
-                : page === "settings" ?
-                    <SettingsPage settings={settings} onChange={setSettings} />
                 :   <TaskViewPage
                         courses={courses}
                         tasks={tasks}
