@@ -460,7 +460,7 @@ test("allows the same course code in different sections of one semester", () => 
             screen
                 .getByRole("button", { name: "Edit CISC 275" })
                 .closest("article")!,
-        ).getByText("0 pending tasks"),
+        ).getByText("1 pending task"),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Create Course" }));
