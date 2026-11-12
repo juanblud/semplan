@@ -83,6 +83,7 @@ interface RangeEvents {
 }
 
 type CalendarView = "month" | "week";
+type CalendarDays = "all" | "mwf" | "tth";
 
 // The course picker's value for planning every course at once.
 const ALL_COURSES = "__all__";
@@ -180,6 +181,17 @@ export function CalendarPage({
     const [view, setView] = useState<CalendarView>(
         initialReflectionOpen ? "week" : "month",
     );
+    const [dayFilter, setDayFilter] = useState<CalendarDays>("all");
+    const [showWeekends, setShowWeekends] = useState(true);
+    const visibleDayIndexes = [0, 1, 2, 3, 4, 5, 6].filter((day) => {
+        if (dayFilter === "mwf") {
+            return day === 1 || day === 3 || day === 5;
+        }
+        if (dayFilter === "tth") {
+            return day === 2 || day === 4;
+        }
+        return showWeekends || (day !== 0 && day !== 6);
+    });
     // The week highlighted in the monthly view: the current week to start
     // with, then the last one chosen or shown in the weekly view.
     const [selectedWeek, setSelectedWeek] = useState<number | null>(() =>
@@ -1059,6 +1071,40 @@ export function CalendarPage({
                         Monthly
                     </button>
                 </div>
+                <div className="calendar-day-filters">
+                    <label>
+                        Days
+                        <select
+                            value={dayFilter}
+                            onChange={(event) =>
+                                setDayFilter(event.target.value as CalendarDays)
+                            }
+                        >
+                            <option value="all">All days</option>
+                            <option value="mwf">
+                                Monday / Wednesday / Friday
+                            </option>
+                            <option value="tth">Tuesday / Thursday</option>
+                        </select>
+                    </label>
+                    <label
+                        title={
+                            dayFilter !== "all" ?
+                                "Choose All days to show weekends"
+                            :   undefined
+                        }
+                    >
+                        <input
+                            type="checkbox"
+                            checked={dayFilter === "all" && showWeekends}
+                            disabled={dayFilter !== "all"}
+                            onChange={(event) =>
+                                setShowWeekends(event.target.checked)
+                            }
+                        />
+                        Show weekends
+                    </label>
+                </div>
                 <ul className="calendar-legend" aria-label="Key">
                     <li>
                         <span
@@ -1282,7 +1328,14 @@ export function CalendarPage({
                     </aside>
 
                     <div className="calendar-grid-wrap">
-                        <table className={`calendar-grid is-${view}`}>
+                        <table
+                            className={`calendar-grid is-${view}`}
+                            style={{
+                                minWidth:
+                                    visibleDayIndexes.length * 100 +
+                                    (view === "month" ? 64 : 0),
+                            }}
+                        >
                             <thead>
                                 <tr>
                                     {/* DRAFT idea 1: a week-number column on
@@ -1297,9 +1350,9 @@ export function CalendarPage({
                                             </abbr>
                                         </th>
                                     )}
-                                    {WEEKDAYS.map((day, index) => (
+                                    {visibleDayIndexes.map((index) => (
                                         <th
-                                            key={day}
+                                            key={index}
                                             scope="col"
                                             className={
                                                 (
@@ -1312,11 +1365,14 @@ export function CalendarPage({
                                             }
                                         >
                                             {view === "month" ?
-                                                <abbr title={day}>
-                                                    {day.slice(0, 3)}
+                                                <abbr title={WEEKDAYS[index]}>
+                                                    {WEEKDAYS[index].slice(
+                                                        0,
+                                                        3,
+                                                    )}
                                                 </abbr>
                                             :   <>
-                                                    {day}
+                                                    {WEEKDAYS[index]}
                                                     <span className="calendar-header-date">
                                                         {grid[index].getDate()}
                                                     </span>
@@ -1367,7 +1423,9 @@ export function CalendarPage({
                                                     )}
                                                 </th>
                                             )}
-                                            {week.map(renderDay)}
+                                            {visibleDayIndexes.map((index) =>
+                                                renderDay(week[index]),
+                                            )}
                                         </tr>
                                     );
                                 })}
