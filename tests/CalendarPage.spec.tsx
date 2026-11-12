@@ -733,6 +733,160 @@ describe("CalendarPage", () => {
         );
     });
 
+    describe("day filters", () => {
+        beforeEach(() => {
+            jest.useFakeTimers({ now: new Date(2026, 9, 14) });
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        test.each(["Monthly", "Weekly"])(
+            "filters %s columns and preserves hidden activities and navigation",
+            async (view) => {
+                const user = userEvent.setup({
+                    advanceTimers: (ms) => jest.advanceTimersByTime(ms),
+                });
+                const weekendActivity = {
+                    id: "weekend-activity",
+                    course: "CISC 275",
+                    semester: "Fall 2026",
+                    kind: "activity",
+                    title: "Weekend reading",
+                    date: "2026-10-17",
+                };
+                localStorage.setItem(
+                    "semester-planner:calendar-items",
+                    JSON.stringify([weekendActivity]),
+                );
+                render(<CalendarPage />);
+                await user.click(screen.getByRole("button", { name: view }));
+                const days = screen.getByRole("combobox", { name: "Days" });
+                const weekends = screen.getByRole("checkbox", {
+                    name: "Show weekends",
+                });
+
+                function expectDays(expected: string[]) {
+                    const table = within(screen.getByRole("table"));
+                    const headers = table
+                        .getAllByRole("columnheader")
+                        .filter((header) => header.textContent !== "Wk");
+                    expect(headers).toHaveLength(expected.length);
+                    headers.forEach((header, index) => {
+                        expect(header.textContent).toMatch(
+                            new RegExp(`^${expected[index].slice(0, 3)}`),
+                        );
+                    });
+                    for (const row of table.getAllByRole("row").slice(1)) {
+                        const cells = within(row).getAllByRole("cell");
+                        expect(cells).toHaveLength(expected.length);
+                        cells.forEach((cell, index) => {
+                            expect(cell.getAttribute("aria-label")).toMatch(
+                                new RegExp(`^${expected[index]},`),
+                            );
+                        });
+                    }
+                }
+
+                expectDays([
+                    "Sunday",
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                ]);
+                expect(weekends).toBeChecked();
+                expect(
+                    screen.getByRole("group", {
+                        name: "CISC 275: Weekend reading",
+                    }),
+                ).toBeInTheDocument();
+
+                await user.click(weekends);
+                expectDays([
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                ]);
+                expect(
+                    screen.queryByRole("group", {
+                        name: "CISC 275: Weekend reading",
+                    }),
+                ).not.toBeInTheDocument();
+
+                await user.selectOptions(days, "mwf");
+                expectDays(["Monday", "Wednesday", "Friday"]);
+                expect(weekends).toBeDisabled();
+                expect(
+                    getDay("Wednesday, October 14, 2026"),
+                ).toBeInTheDocument();
+
+                await user.selectOptions(days, "tth");
+                expectDays(["Tuesday", "Thursday"]);
+                expect(
+                    getDay("Thursday, October 15, 2026"),
+                ).toBeInTheDocument();
+                if (view === "Weekly") {
+                    expect(
+                        screen.getByRole("columnheader", {
+                            name: "Tuesday 13",
+                        }),
+                    ).toBeInTheDocument();
+                    expect(
+                        screen.getByRole("columnheader", {
+                            name: "Thursday 15",
+                        }),
+                    ).toBeInTheDocument();
+                }
+
+                const period = view === "Weekly" ? "week" : "month";
+                await user.click(
+                    screen.getByRole("button", { name: `Next ${period}` }),
+                );
+                expectDays(["Tuesday", "Thursday"]);
+                await user.click(
+                    screen.getByRole("button", { name: `Previous ${period}` }),
+                );
+                await user.click(
+                    screen.getByRole("button", {
+                        name: view === "Weekly" ? "Monthly" : "Weekly",
+                    }),
+                );
+                expect(days).toHaveValue("tth");
+                expectDays(["Tuesday", "Thursday"]);
+
+                await user.selectOptions(days, "all");
+                expect(weekends).toBeEnabled();
+                expect(weekends).not.toBeChecked();
+                expectDays([
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                ]);
+                await user.click(weekends);
+                expect(
+                    screen.getByRole("group", {
+                        name: "CISC 275: Weekend reading",
+                    }),
+                ).toBeInTheDocument();
+                expect(
+                    JSON.parse(
+                        localStorage.getItem(
+                            "semester-planner:calendar-items",
+                        )!,
+                    ),
+                ).toEqual([weekendActivity]);
+            },
+        );
+    });
+
     describe("weekly view", () => {
         beforeEach(() => {
             jest.useFakeTimers({ now: new Date(2026, 9, 14) });
