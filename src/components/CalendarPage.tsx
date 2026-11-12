@@ -4,6 +4,7 @@ import { AddActivityDialog } from "./AddActivityDialog";
 import type { NewActivity } from "./AddActivityDialog";
 import { AddSemesterButton } from "./AddSemesterButton";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
+import type { CancelPlan } from "./ClassMeetingDialog";
 import { loadCourses } from "./CoursesPage";
 import type { CalendarCourseSelection } from "./CoursesPage";
 import {
@@ -58,10 +59,18 @@ interface OpenClass {
     date: string;
 }
 
-// A just-cancelled class and the topics it sent back, so it can be undone.
+// A topic moved by cancelling a class; no `to` means sent to Unscheduled.
+interface TopicMove {
+    id: string;
+    from: string;
+    to?: string;
+}
+
+// A just-cancelled class and the topics it moved, so it can be undone.
 interface CancelledClass extends OpenClass {
     key: string;
-    topicIds: string[];
+    moves: TopicMove[];
+    outcome: string;
 }
 
 // Where a dragged topic or activity lands.
@@ -125,6 +134,21 @@ function getEventDateKeys(event: GoogleCalendarEvent): string[] {
 // Blocks, and the topics and activities inside them, take their course's color.
 function courseColorStyle(color?: string): CSSProperties | undefined {
     return color ? ({ "--course-color": color } as CSSProperties) : undefined;
+}
+
+// A clipboard marks activities (assignments, tests and the like) so they
+// stand apart from the plain topic chips.
+function ActivityIcon() {
+    return (
+        <svg
+            className="calendar-activity-icon"
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+        >
+            <rect x="3" y="3" width="10" height="12" rx="1.5" />
+            <path d="M6 2h4v2.5H6z M5.5 8h5 M5.5 11h3.5" />
+        </svg>
+    );
 }
 
 export function CalendarPage({
@@ -411,19 +435,68 @@ export function CalendarPage({
         );
     }
 
-    // The class's topics go back to the unscheduled list; activities stay.
-    function cancelClass(meeting: OpenClass) {
+    // The course's classes after this one that are still on, in order.
+    function getLaterClasses({ course: code, date }: OpenClass): string[] {
+        const option = courses.find((entry) => entry.code === code);
+        if (!option) {
+            return [];
+        }
+        const end = option.endDate || semester.end;
+        const dates: string[] = [];
+        for (
+            let day = addDays(parseDateKey(date), 1);
+            toDateKey(day) <= end;
+            day = addDays(day, 1)
+        ) {
+            if (isClassMeeting(day, option, semester, cancelledClasses)) {
+                dates.push(toDateKey(day));
+            }
+        }
+        return dates;
+    }
+
+    // Activities stay put; the class's topics go where the plan says.
+    function cancelClass(meeting: OpenClass, plan: CancelPlan) {
         const key = classKey(meeting.course, meeting.date);
         const topicIds = getClassTopics(meeting).map((item) => item.id);
+        const moves: TopicMove[] = [];
+        let outcome = "";
+        if (plan.kind === "push") {
+            // Each class takes the previous one's topics, until a class with
+            // nothing planned absorbs them. Past the last class, they go back
+            // to Unscheduled topics.
+            let carried = topicIds.map((id) => ({ id, from: meeting.date }));
+            for (const date of getLaterClasses(meeting)) {
+                if (carried.length === 0) {
+                    break;
+                }
+                moves.push(...carried.map((move) => ({ ...move, to: date })));
+                carried = getClassTopics({ course: meeting.course, date }).map(
+                    (item) => ({ id: item.id, from: date }),
+                );
+            }
+            moves.push(...carried);
+            outcome = " Plans pushed back one class.";
+        } else {
+            const to = plan.kind === "move" ? plan.to : undefined;
+            moves.push(
+                ...topicIds.map((id) => ({ id, from: meeting.date, to })),
+            );
+            if (topicIds.length > 0) {
+                outcome =
+                    to ?
+                        ` Topics moved to ${formatLongDate(parseDateKey(to))}.`
+                    :   " Topics moved to Unscheduled topics.";
+            }
+        }
         setItems((current) =>
-            current.map((item) =>
-                topicIds.includes(item.id) ?
-                    { ...item, date: undefined }
-                :   item,
-            ),
+            current.map((item) => {
+                const move = moves.find((entry) => entry.id === item.id);
+                return move ? { ...item, date: move.to } : item;
+            }),
         );
         setCancelledClasses((current) => [...current, key]);
-        setLastCancelled({ ...meeting, key, topicIds });
+        setLastCancelled({ ...meeting, key, moves, outcome });
         setOpenClass(null);
     }
 
@@ -431,15 +504,17 @@ export function CalendarPage({
         if (!lastCancelled) {
             return;
         }
-        const { key, date, topicIds } = lastCancelled;
+        const { key, moves } = lastCancelled;
         setCancelledClasses((current) => current.filter((k) => k !== key));
-        // Only topics still unscheduled go back; ones moved since stay put.
+        // Only topics still where the cancel put them go back; ones moved
+        // since stay put.
         setItems((current) =>
-            current.map((item) =>
-                topicIds.includes(item.id) && !item.date ?
-                    { ...item, date }
-                :   item,
-            ),
+            current.map((item) => {
+                const move = moves.find((entry) => entry.id === item.id);
+                return move && item.date === move.to && !item.activityId ?
+                        { ...item, date: move.from }
+                    :   item;
+            }),
         );
         setLastCancelled(null);
     }
@@ -681,7 +756,10 @@ export function CalendarPage({
                 }}
             >
                 {renderDeleteButton(activity)}
-                <strong>{title}</strong>
+                <strong>
+                    <ActivityIcon />
+                    {title}
+                </strong>
                 {activity.detail && <span>{activity.detail}</span>}
                 {activityTopics.length > 0 && (
                     <ul className="calendar-activity-topics">
@@ -981,6 +1059,24 @@ export function CalendarPage({
                         Monthly
                     </button>
                 </div>
+                <ul className="calendar-legend" aria-label="Key">
+                    <li>
+                        <span
+                            className="calendar-legend-swatch is-topic"
+                            aria-hidden="true"
+                        />
+                        Topic
+                    </li>
+                    <li>
+                        <span
+                            className="calendar-legend-swatch is-activity"
+                            aria-hidden="true"
+                        >
+                            <ActivityIcon />
+                        </span>
+                        Activity
+                    </li>
+                </ul>
                 {GOOGLE_API_KEY && (
                     <p className="calendar-sync-status">
                         {!currentEvents ?
@@ -1066,7 +1162,7 @@ export function CalendarPage({
                     <span>
                         {lastCancelled.course} class on{" "}
                         {formatLongDate(parseDateKey(lastCancelled.date))}{" "}
-                        cancelled.
+                        cancelled.{lastCancelled.outcome}
                     </span>
                     <button type="button" onClick={undoCancelClass}>
                         Undo
@@ -1142,6 +1238,7 @@ export function CalendarPage({
                         {topicDraft === null ?
                             <button
                                 type="button"
+                                className="calendar-create-topic"
                                 onClick={() => setTopicDraft("")}
                             >
                                 +&nbsp; Create Topic
@@ -1284,8 +1381,9 @@ export function CalendarPage({
                 <ClassMeetingDialog
                     courseCode={openClass.course}
                     date={parseDateKey(openClass.date)}
-                    topicCount={getClassTopics(openClass).length}
-                    onCancelClass={() => cancelClass(openClass)}
+                    topics={getClassTopics(openClass)}
+                    laterClasses={getLaterClasses(openClass)}
+                    onCancelClass={(plan) => cancelClass(openClass, plan)}
                     onClose={() => setOpenClass(null)}
                 />
             )}
