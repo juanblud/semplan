@@ -5,6 +5,7 @@ import type { NewActivity } from "./AddActivityDialog";
 import { AddSemesterButton } from "./AddSemesterButton";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
 import { loadCourses } from "./CoursesPage";
+import type { CalendarCourseSelection } from "./CoursesPage";
 import {
     CANCELLED_KEY,
     ITEMS_KEY,
@@ -13,6 +14,7 @@ import {
     REFLECTIONS_KEY,
     WEEK_LABELS_KEY,
     getCalendarSemesters,
+    courseKey,
 } from "./calendarStorage";
 import type { WeekLabel, WeekReflection } from "./calendarStorage";
 import type { CalendarItem } from "./scheduleTemplate";
@@ -125,20 +127,35 @@ function courseColorStyle(color?: string): CSSProperties | undefined {
     return color ? ({ "--course-color": color } as CSSProperties) : undefined;
 }
 
-export function CalendarPage({ role = "student" }: { role?: Role }) {
+export function CalendarPage({
+    role = "student",
+    initialCourse,
+    initialReflectionOpen = false,
+}: {
+    role?: Role;
+    initialCourse?: CalendarCourseSelection;
+    initialReflectionOpen?: boolean;
+}) {
     const [savedCourses] = useState(loadCourses);
     const semesters = getCalendarSemesters(savedCourses);
     const [semesterName, setSemesterName] = useSelectedSemester(
         semesters.map((option) => option.name),
+        initialCourse?.semester,
     );
     const semester =
         semesters.find((option) => option.name === semesterName) ??
         semesters[0];
-    const [courseCode, setCourseCode] = useState(ALL_COURSES);
+    const [courseCode, setCourseCode] = useState(() =>
+        initialCourse ?
+            courseKey(initialCourse.code, initialCourse.section)
+        :   ALL_COURSES,
+    );
     const courses: Course[] = savedCourses
         .filter((course) => course.semester === semesterName)
         .map(toScheduledCourse);
-    const [view, setView] = useState<CalendarView>("month");
+    const [view, setView] = useState<CalendarView>(
+        initialReflectionOpen ? "week" : "month",
+    );
     // The week highlighted in the monthly view: the current week to start
     // with, then the last one chosen or shown in the weekly view.
     const [selectedWeek, setSelectedWeek] = useState<number | null>(() =>
@@ -997,6 +1014,7 @@ export function CalendarPage({ role = "student" }: { role?: Role }) {
             {hasCourse && view === "week" && focusWeek !== null && !showAll && (
                 <WeekReflectionPanel
                     role={role}
+                    defaultOpen={initialReflectionOpen}
                     week={focusWeek}
                     reflection={getReflection(focusWeek)}
                     previousPlan={getReflection(focusWeek - 1)?.plan ?? ""}

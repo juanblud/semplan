@@ -345,6 +345,35 @@ test("rejects duplicate codes and filters semesters", () => {
     ).toBeInTheDocument();
 });
 
+test("course card buttons do not open the calendar", async () => {
+    const user = userEvent.setup();
+    const onPlanInCalendar = jest.fn();
+    render(<CoursesPage onPlanInCalendar={onPlanInCalendar} />);
+    const card = screen.getByRole("link", {
+        name: "View CISC 275 in calendar",
+    });
+
+    const edit = within(card).getByRole("button", { name: "Edit CISC 275" });
+    edit.focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await user.click(
+        within(card).getByRole("button", { name: "Delete CISC 275" }),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await user.click(
+        within(card).getByRole("button", { name: "Save schedule template" }),
+    );
+    expect(within(card).getByRole("status")).toHaveTextContent(
+        "Schedule template saved for CISC 275",
+    );
+    expect(onPlanInCalendar).not.toHaveBeenCalled();
+});
+
 test("allows planning a course in a newly created semester", () => {
     const onPlanInCalendar = jest.fn();
     render(<CoursesPage onPlanInCalendar={onPlanInCalendar} />);
@@ -353,7 +382,7 @@ test("allows planning a course in a newly created semester", () => {
         target: { value: "Fall 2027" },
     });
     fireEvent.click(
-        screen.getByRole("button", { name: "Plan in Calender View" }),
+        screen.getByRole("button", { name: "Plan in Calendar View" }),
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(onPlanInCalendar).toHaveBeenCalledWith(

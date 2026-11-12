@@ -19,7 +19,7 @@ interface HomePageProps {
     role?: Role;
     showTasks: boolean;
     onToggleTask: (id: number) => void;
-    onOpenCourse: () => void;
+    onOpenCourse: (course: Course) => void;
 }
 
 export function HomePage({
@@ -161,9 +161,9 @@ export function HomePage({
                                     </p>
                                     <button
                                         type="button"
-                                        onClick={onOpenCourse}
+                                        onClick={() => onOpenCourse(course)}
                                     >
-                                        Open Course Plan
+                                        Open Course Reflection
                                     </button>
                                 </article>
                             ))}

@@ -513,6 +513,31 @@ export function CoursesPage({
                             className="course-card"
                             key={course.id}
                             style={{ borderLeftColor: course.color }}
+                            role={onPlanInCalendar ? "link" : undefined}
+                            tabIndex={onPlanInCalendar ? 0 : undefined}
+                            aria-label={
+                                onPlanInCalendar ?
+                                    `View ${courseKey(course.code, course.section)} in calendar`
+                                :   undefined
+                            }
+                            onClick={(event) => {
+                                if (
+                                    !(event.target as HTMLElement).closest(
+                                        "button, a, input, select, textarea",
+                                    )
+                                ) {
+                                    onPlanInCalendar?.(course);
+                                }
+                            }}
+                            onKeyDown={(event) => {
+                                if (
+                                    event.target === event.currentTarget &&
+                                    event.key === "Enter"
+                                ) {
+                                    event.preventDefault();
+                                    onPlanInCalendar?.(course);
+                                }
+                            }}
                         >
                             <h2>{course.code}</h2>
                             <p className="course-name">{course.title}</p>
@@ -915,7 +940,7 @@ export function CoursesPage({
                                     name="planInCalendar"
                                     value="true"
                                 >
-                                    Plan in Calender View
+                                    Plan in Calendar View
                                 </button>
                             )}
                             <button type="submit" className="course-primary">
