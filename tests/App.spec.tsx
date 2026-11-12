@@ -113,6 +113,22 @@ describe("App", () => {
         );
     });
 
+    test("the logo takes you back to Home", async () => {
+        const user = userEvent.setup();
+        render(<App />);
+        await user.click(screen.getByRole("link", { name: "Calendar" }));
+        expect(window.location.pathname).toBe("/Calendar");
+
+        const logo = screen.getByRole("link", { name: "SemPlan home" });
+        expect(logo).toHaveAttribute("href", "/Home");
+        await user.click(logo);
+
+        expect(window.location.pathname).toBe("/Home");
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+            "SemPlan",
+        );
+    });
+
     test("opens the page in the URL, as after a refresh", () => {
         window.history.replaceState(null, "", "/Calendar");
         render(<App />);

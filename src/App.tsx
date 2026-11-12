@@ -178,13 +178,25 @@ export function App({
             <aside className="sidebar" aria-label="Sidebar">
                 <div className="sidebar-top">
                     {!collapsed && (
-                        <div className="brand">
+                        // The logo takes you home, as on most sites.
+                        <a
+                            className="brand"
+                            href={getPageUrl("home")}
+                            aria-label="SemPlan home"
+                            title="Go to Home"
+                            onClick={(event) => {
+                                // Ctrl/Cmd-click still opens a new tab.
+                                if (event.ctrlKey || event.metaKey) return;
+                                event.preventDefault();
+                                navigate("home");
+                            }}
+                        >
                             <img
                                 className="brand-logo"
                                 src={logos[settings.colorScheme]}
                                 alt="SemPlan"
                             />
-                        </div>
+                        </a>
                     )}
                     <button
                         className="sidebar-toggle"
