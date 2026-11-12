@@ -27,7 +27,6 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
     const [semester, setSemester] = useSelectedSemester(semesterNames);
     const [title, setTitle] = useState("");
     const [course, setCourse] = useState("All");
-    const [section, setSection] = useState("All");
     const [startDate, setStartDate] = useState("");
     const [finishDate, setFinishDate] = useState("");
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -35,7 +34,6 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
     function changeSemester(name: string) {
         setSemester(name);
         setCourse("All");
-        setSection("All");
     }
     const semesterCourses = courses.filter(
         (item) => item.semester === semester,
@@ -47,22 +45,10 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
             ...semesterTasks.map((task) => normalizeCourseCode(task.course)),
         ]),
     ].filter((code) => code !== "ALL");
-    const sectionOptions = [
-        ...new Set([
-            ...semesterCourses
-                .filter((item) => normalizeCourseCode(item.code) === course)
-                .map((item) => item.section),
-            ...semesterTasks
-                .filter((task) => normalizeCourseCode(task.course) === course)
-                .map((task) => task.section),
-        ]),
-    ].filter((item) => item && item !== "All");
-
     function resetForm() {
         setEditingId(null);
         setTitle("");
         setCourse("All");
-        setSection("All");
         setStartDate("");
         setFinishDate("");
     }
@@ -73,7 +59,6 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
         setCourse(
             task.course === "All" ? "All" : normalizeCourseCode(task.course),
         );
-        setSection(task.section);
         setStartDate(task.startDate);
         setFinishDate(task.finishDate);
         titleInput.current?.focus();
@@ -97,7 +82,6 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                             title: title.trim(),
                             course,
                             semester,
-                            section: section.trim() || "All",
                             startDate,
                             finishDate,
                         }
@@ -114,7 +98,6 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                 title: title.trim(),
                 course,
                 semester,
-                section: section.trim() || "All",
                 startDate,
                 finishDate,
                 completed: false,
@@ -183,24 +166,11 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                             value={course}
                             onChange={(event) => {
                                 setCourse(event.target.value);
-                                setSection("All");
                             }}
                         >
                             <option>All</option>
                             {courseOptions.map((code) => (
                                 <option key={code}>{code}</option>
-                            ))}
-                        </select>
-                    </label>
-                    <label>
-                        Section
-                        <select
-                            value={section}
-                            onChange={(event) => setSection(event.target.value)}
-                        >
-                            <option>All</option>
-                            {sectionOptions.map((option) => (
-                                <option key={option}>{option}</option>
                             ))}
                         </select>
                     </label>
@@ -305,12 +275,6 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                                                     {task.semester}
                                                 </small>
                                             )}
-                                        </span>
-                                        <span>
-                                            <span className="task-mobile-label">
-                                                Section:{" "}
-                                            </span>
-                                            {task.section}
                                         </span>
                                         <span className="task-date">
                                             <span className="task-date-label">

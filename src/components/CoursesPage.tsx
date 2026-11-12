@@ -492,18 +492,7 @@ export function CoursesPage({
                                 !task.completed &&
                                 task.semester === course.semester &&
                                 normalize(task.course) ===
-                                    normalize(course.code) &&
-                                (course.section ?
-                                    task.section === course.section
-                                :   !courses.some(
-                                        (other) =>
-                                            other.id !== course.id &&
-                                            other.semester ===
-                                                course.semester &&
-                                            normalize(other.code) ===
-                                                normalize(course.code) &&
-                                            other.section === task.section,
-                                    )),
+                                    normalize(course.code),
                         )
                         .sort((a, b) =>
                             a.finishDate.localeCompare(b.finishDate),
