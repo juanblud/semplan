@@ -588,15 +588,125 @@ describe("App", () => {
         ).toBeInTheDocument();
     });
 
-    test("opens a course plan on the Courses URL", async () => {
-        const user = userEvent.setup();
-        render(<App />);
+    test.each([
+        { semester: "Fall 2026", index: 0 },
+        { semester: "Spring 2027", index: 1 },
+    ])(
+        "opens Home course $index's weekly reflection for $semester",
+        async ({ semester, index }) => {
+            const user = userEvent.setup();
+            const courses = loadCourses().map((course, i) => ({
+                ...course,
+                code: "CISC 275",
+                section: i === 0 ? "010" : "011",
+                semester,
+            }));
+            localStorage.setItem(
+                "semester-planner-courses-v1",
+                JSON.stringify(courses),
+            );
+            render(<App />);
+            await user.selectOptions(
+                screen.getByRole("combobox", { name: "Semester" }),
+                semester,
+            );
+            expect(
+                screen.queryByRole("button", { name: "Open Course Plan" }),
+            ).not.toBeInTheDocument();
+            const card = screen
+                .getByText(courses[index].title)
+                .closest("article")!;
+            await user.click(
+                within(card).getByRole("button", {
+                    name: "Open Course Reflection",
+                }),
+            );
 
-        await user.click(
-            screen.getAllByRole("button", { name: "Open Course Plan" })[0],
-        );
-        expect(window.location.pathname).toBe("/Courses");
-    });
+            expect(window.location.pathname).toBe("/Calendar");
+            const selectedCourse = `CISC 275 - Section ${courses[index].section}`;
+            expect(
+                screen.getByRole("combobox", { name: "Course" }),
+            ).toHaveDisplayValue(selectedCourse);
+            expect(
+                screen.getByRole("combobox", { name: "Semester" }),
+            ).toHaveValue(semester);
+            expect(
+                screen.getByRole("button", { name: "Weekly" }),
+            ).toHaveAttribute("aria-pressed", "true");
+            const reflection = screen.getByRole("textbox", {
+                name: "What do you understand well now?",
+            });
+            expect(reflection).toBeVisible();
+            await user.type(reflection, "Course-specific reflection");
+            expect(
+                JSON.parse(
+                    localStorage.getItem("semester-planner:week-reflections")!,
+                ),
+            ).toEqual([
+                expect.objectContaining({
+                    course: selectedCourse,
+                    semester,
+                    understood: "Course-specific reflection",
+                }),
+            ]);
+
+            await user.click(screen.getByRole("link", { name: "Home" }));
+            await user.click(screen.getByRole("link", { name: "Calendar" }));
+            expect(
+                screen.getByRole("button", { name: "Monthly" }),
+            ).toHaveAttribute("aria-pressed", "true");
+        },
+    );
+
+    test.each(["click", "Enter"])(
+        "opens a course card's semester and section in Calendar using %s",
+        async (action) => {
+            const user = userEvent.setup();
+            const course = {
+                ...loadCourses()[0],
+                id: "spring-section",
+                semester: "Spring 2027",
+                section: "011",
+            };
+            localStorage.setItem(
+                "semester-planner-courses-v1",
+                JSON.stringify([
+                    ...loadCourses(),
+                    { ...course, id: "other-section", section: "010" },
+                    course,
+                ]),
+            );
+            window.history.replaceState(null, "", "/Courses");
+            render(<App />);
+            await user.selectOptions(
+                screen.getByRole("combobox", { name: "Semester" }),
+                "Spring 2027",
+            );
+            const card = screen.getByRole("link", {
+                name: "View CISC 275 - Section 011 in calendar",
+            });
+            if (action === "click") {
+                await user.click(within(card).getByText(course.title));
+            } else {
+                card.focus();
+                await user.keyboard("{Enter}");
+            }
+
+            expect(window.location.pathname).toBe("/Calendar");
+            expect(
+                screen.getByRole("combobox", { name: "Course" }),
+            ).toHaveDisplayValue("CISC 275 - Section 011");
+            expect(
+                screen.getByRole("combobox", { name: "Semester" }),
+            ).toHaveValue("Spring 2027");
+
+            await user.click(screen.getByRole("link", { name: "Courses" }));
+            await user.click(screen.getByRole("link", { name: "Calendar" }));
+            expect(
+                screen.getByRole("combobox", { name: "Course" }),
+            ).toHaveDisplayValue("All Courses");
+        },
+    );
 
     test("saves course edits before opening the Calendar page", async () => {
         const user = userEvent.setup();
@@ -626,13 +736,13 @@ describe("App", () => {
             await user.selectOptions(screen.getByLabelText(label), value);
         }
         await user.click(
-            screen.getByRole("button", { name: "Plan in Calender View" }),
+            screen.getByRole("button", { name: "Plan in Calendar View" }),
         );
 
         expect(window.location.pathname).toBe("/Calendar");
         expect(
             screen.getByRole("combobox", { name: "Course" }),
-        ).toHaveDisplayValue("All Courses");
+        ).toHaveDisplayValue("MATH 241");
         expect(screen.getByRole("combobox", { name: "Semester" })).toHaveValue(
             "Fall 2026",
         );

@@ -10,6 +10,13 @@
     min-height: 340px;
     overflow-wrap: anywhere;
 }
+.courses-page .course-card[role="link"] {
+    cursor: pointer;
+}
+.courses-page .course-card[role="link"]:focus-visible {
+    outline: 2px solid var(--ud-blue);
+    outline-offset: 2px;
+}
 .courses-page .course-card h2 {
     margin: 0 0 6px;
     color: var(--ud-blue);

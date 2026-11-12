@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { WeekReflection } from "./calendarStorage";
 import type { Role } from "./SettingsPage";
 
@@ -39,6 +40,7 @@ const PROMPTS: Record<Role, RolePrompts> = {
 
 interface WeekReflectionPanelProps {
     role: Role;
+    defaultOpen?: boolean;
     week: number;
     reflection?: WeekReflection;
     previousPlan: string;
@@ -49,14 +51,20 @@ interface WeekReflectionPanelProps {
 
 export function WeekReflectionPanel({
     role,
+    defaultOpen = false,
     week,
     reflection,
     previousPlan,
     onChange,
 }: WeekReflectionPanelProps) {
+    const [open, setOpen] = useState(defaultOpen);
     const prompts = PROMPTS[role];
     return (
-        <details className="calendar-reflection">
+        <details
+            className="calendar-reflection"
+            open={open}
+            onToggle={(event) => setOpen(event.currentTarget.open)}
+        >
             <summary>
                 Reflect on week {week}
                 {reflection && <small>Saved</small>}

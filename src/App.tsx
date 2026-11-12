@@ -6,6 +6,7 @@ import semPlanLogoGreen from "./assets/sem-plan-logo-green.png";
 import semPlanLogoRed from "./assets/sem-plan-logo-red.png";
 import { CalendarPage } from "./components/CalendarPage";
 import { CoursesPage, loadCourses } from "./components/CoursesPage";
+import type { CalendarCourseSelection } from "./components/CoursesPage";
 import { HomePage } from "./components/HomePage";
 import { PlanningNotesPage } from "./components/PlanningNotesPage";
 import { SettingsDialog } from "./components/SettingsPage";
@@ -111,6 +112,9 @@ export function App({
     const [settings, setSettings] = useState(loadSettings);
     const [tasks, setTasks] = useState(startingTasks);
     const [courses, setCourses] = useState(loadCourses);
+    const [calendarCourse, setCalendarCourse] =
+        useState<CalendarCourseSelection | null>(null);
+    const [calendarReflectionOpen, setCalendarReflectionOpen] = useState(false);
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [chosenPage, setPage] = useState<Page>(() =>
@@ -155,6 +159,8 @@ export function App({
 
     function navigate(next: Page) {
         if (next === "tasks" && settings.role === "professor") return;
+        setCalendarCourse(null);
+        setCalendarReflectionOpen(false);
         if (next !== page) {
             window.history.pushState(null, "", getPageUrl(next));
         }
@@ -254,7 +260,11 @@ export function App({
                                 ),
                             )
                         }
-                        onOpenCourse={() => navigate("courses")}
+                        onOpenCourse={(course) => {
+                            navigate("calendar");
+                            setCalendarCourse(course);
+                            setCalendarReflectionOpen(true);
+                        }}
                     />
                 : page === "courses" ?
                     <CoursesPage
@@ -262,10 +272,17 @@ export function App({
                         onCoursesChange={setCourses}
                         tasks={tasks}
                         role={settings.role}
-                        onPlanInCalendar={() => navigate("calendar")}
+                        onPlanInCalendar={(course) => {
+                            navigate("calendar");
+                            setCalendarCourse(course);
+                        }}
                     />
                 : page === "calendar" ?
-                    <CalendarPage role={settings.role} />
+                    <CalendarPage
+                        role={settings.role}
+                        initialCourse={calendarCourse ?? undefined}
+                        initialReflectionOpen={calendarReflectionOpen}
+                    />
                 : page === "planning-notes" ?
                     <PlanningNotesPage courses={courses} />
                 :   <TaskViewPage
