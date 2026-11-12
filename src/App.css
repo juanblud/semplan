@@ -653,7 +653,7 @@
 
 .course-toolbar {
     display: grid;
-    grid-template-columns: minmax(190px, 1fr) minmax(280px, 1.6fr) auto;
+    grid-template-columns: minmax(190px, 1fr) auto;
     align-items: end;
     gap: 24px;
     margin: 0 0 clamp(8px, 2vh, 18px);
@@ -741,7 +741,6 @@
 }
 
 .course-toolbar select,
-.course-toolbar input,
 .create-course {
     height: 38px;
     border: 1px solid var(--line);
@@ -760,15 +759,7 @@
     font-size: calc(16px + var(--font-bump));
 }
 
-.course-toolbar input {
-    width: 100%;
-    padding: 3px 14px;
-    border-radius: 19px;
-    font-size: calc(15px + var(--font-bump));
-}
-
-.course-toolbar select:focus,
-.course-toolbar input:focus {
+.course-toolbar select:focus {
     border-color: var(--ud-blue);
 }
 
@@ -1987,15 +1978,6 @@ textarea:focus-visible {
 }
 
 @media (max-width: 1000px) {
-    .course-toolbar {
-        grid-template-columns: 1fr 1.5fr;
-    }
-
-    .create-course {
-        grid-column: 1 / -1;
-        justify-self: start;
-    }
-
     .course-grid {
         gap: 18px;
     }

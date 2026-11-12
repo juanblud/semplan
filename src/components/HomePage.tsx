@@ -3,9 +3,15 @@ import type { Task } from "../tasks";
 import { AddSemesterButton } from "./AddSemesterButton";
 import type { Course } from "./CoursesPage";
 import { HomeWeekView } from "./HomeWeekView";
-import { getCalendarSemesters } from "./calendarStorage";
+import {
+    getCalendarSemesters,
+    loadCalendarItems,
+    loadSaved,
+} from "./calendarStorage";
 import type { Role } from "./SettingsPage";
 import { useSelectedSemester } from "./useSelectedSemester";
+
+const COMPLETED_ACTIVITIES_KEY = "semplan:completed-activities";
 
 interface HomePageProps {
     courses: Course[];
@@ -28,6 +34,20 @@ export function HomePage({
     const semesters = calendarSemesters.map((term) => term.name);
     const [semester, setSemester] = useSelectedSemester(semesters);
     const [now, setNow] = useState(() => new Date());
+    const [activities] = useState(loadCalendarItems);
+    const [completedActivities, setCompletedActivities] = useState(() =>
+        loadSaved<string>(COMPLETED_ACTIVITIES_KEY, []),
+    );
+    useEffect(() => {
+        try {
+            localStorage.setItem(
+                COMPLETED_ACTIVITIES_KEY,
+                JSON.stringify(completedActivities),
+            );
+        } catch {
+            // Checkboxes still work for this visit if storage is unavailable.
+        }
+    }, [completedActivities]);
     useEffect(() => {
         const nextDay = new Date(now);
         nextDay.setHours(24, 0, 0, 0);
@@ -44,6 +64,31 @@ export function HomePage({
             task.startDate <= today &&
             today <= task.finishDate,
     );
+    const todayActivities = activities.filter(
+        (activity) =>
+            activity.kind === "activity" &&
+            activity.semester === semester &&
+            activity.date === today,
+    );
+    const todoItems = [
+        ...todayTasks.map((task) => ({
+            ...task,
+            id: `task-${task.id}`,
+            onToggle: () => onToggleTask(task.id),
+        })),
+        ...todayActivities.map((activity) => ({
+            id: `activity-${activity.id}`,
+            course: activity.course,
+            title: activity.title,
+            completed: completedActivities.includes(activity.id),
+            onToggle: () =>
+                setCompletedActivities((current) =>
+                    current.includes(activity.id) ?
+                        current.filter((id) => id !== activity.id)
+                    :   [...current, activity.id],
+                ),
+        })),
+    ];
 
     const selectedSemester = calendarSemesters.find(
         (term) => term.name === semester,
@@ -135,7 +180,7 @@ export function HomePage({
                         aria-labelledby="todo-title"
                     >
                         <h2 id="todo-title">
-                            Today&apos;s tasks:{" "}
+                            To-Do &amp; Reminders:{" "}
                             <time dateTime={today}>
                                 {now.toLocaleDateString("en-US")}
                             </time>
@@ -149,7 +194,7 @@ export function HomePage({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {todayTasks.map((task) => (
+                                    {todoItems.map((task) => (
                                         <tr key={task.id}>
                                             <th scope="row">{task.course}</th>
                                             <td>
@@ -157,18 +202,14 @@ export function HomePage({
                                                     <input
                                                         type="checkbox"
                                                         checked={task.completed}
-                                                        onChange={() =>
-                                                            onToggleTask(
-                                                                task.id,
-                                                            )
-                                                        }
+                                                        onChange={task.onToggle}
                                                     />
                                                     <span>{task.title}</span>
                                                 </label>
                                             </td>
                                         </tr>
                                     ))}
-                                    {todayTasks.length === 0 && (
+                                    {todoItems.length === 0 && (
                                         <tr>
                                             <td colSpan={2}>
                                                 No tasks scheduled for today.

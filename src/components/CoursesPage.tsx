@@ -174,7 +174,6 @@ export function CoursesPage({
     }
     const semesters = calendarSemesters.map((term) => term.name);
     const [semester, setSemester] = useSelectedSemester(semesters);
-    const [search, setSearch] = useState("");
     const [draft, setDraft] = useState<Course | null>(null);
     const [meeting, setMeeting] = useState(() => parseMeetingSchedule(""));
     const [savedTemplates, setSavedTemplates] = useState(() =>
@@ -439,16 +438,11 @@ export function CoursesPage({
             if (!saved) return;
         }
         setSemester(cleaned.semester);
-        setSearch("");
         closeDialog();
         if (planInCalendar) onPlanInCalendar?.(cleaned);
     }
     const visibleCourses = courses.filter(
-        (course) =>
-            course.semester === semester &&
-            normalize(`${course.code} ${course.title}`).includes(
-                normalize(search),
-            ),
+        (course) => course.semester === semester,
     );
     return (
         <section className="courses-page">
@@ -476,15 +470,6 @@ export function CoursesPage({
                         onAdd={setSemester}
                     />
                 </div>
-                <label>
-                    Search by course code or title
-                    <input
-                        type="search"
-                        placeholder="Search courses"
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                    />
-                </label>
                 <button
                     className="create-course"
                     type="button"
@@ -621,10 +606,8 @@ export function CoursesPage({
             </div>
             {visibleCourses.length === 0 && (
                 <p className="empty-message">
-                    {search ?
-                        "No courses match your search. Try another code or name."
-                    :   "No courses in this semester yet. Add a course to get started."
-                    }
+                    No courses in this semester yet. Add a course to get
+                    started.
                 </p>
             )}
             <section

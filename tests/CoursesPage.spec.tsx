@@ -14,6 +14,68 @@ beforeAll(() => {
 });
 beforeEach(() => localStorage.clear());
 
+test("course controls omit search and show all courses in the selected semester", async () => {
+    const user = userEvent.setup();
+    const [first, second] = loadCourses();
+    const spring = {
+        ...first,
+        id: "spring-course",
+        code: "MATH 241",
+        title: "Calculus",
+        semester: "Spring 2027",
+    };
+    render(<CoursesPage courses={[first, second, spring]} />);
+
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(
+        screen.queryByPlaceholderText("Search courses"),
+    ).not.toBeInTheDocument();
+    expect(
+        screen.queryByText("Search by course code or title"),
+    ).not.toBeInTheDocument();
+    expect(
+        screen.getByRole("button", { name: "Create Course" }),
+    ).toBeInTheDocument();
+    expect(
+        screen.getByRole("button", { name: "Add semester" }),
+    ).toBeInTheDocument();
+    expect(
+        screen.getByRole("heading", { name: first.code }),
+    ).toBeInTheDocument();
+    expect(
+        screen.getByRole("heading", { name: second.code }),
+    ).toBeInTheDocument();
+    expect(
+        screen.queryByRole("heading", { name: spring.code }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+        "2 courses in Fall 2026",
+    );
+
+    await user.selectOptions(screen.getByLabelText("Semester"), "Spring 2027");
+    expect(
+        screen.getByRole("heading", { name: spring.code }),
+    ).toBeInTheDocument();
+    expect(
+        screen.queryByRole("heading", { name: first.code }),
+    ).not.toBeInTheDocument();
+    expect(
+        screen.queryByRole("heading", { name: second.code }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+        "1 course in Spring 2027",
+    );
+
+    await user.selectOptions(screen.getByLabelText("Semester"), "Fall 2026");
+    expect(
+        screen.getByRole("heading", { name: first.code }),
+    ).toBeInTheDocument();
+    expect(
+        screen.getByRole("heading", { name: second.code }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+});
+
 test("corrects the saved CISC 275 instructor without changing other course details", () => {
     const courses = loadCourses().map((course) => ({
         ...course,
