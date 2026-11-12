@@ -150,8 +150,9 @@ export function ClassMeetingDialog({
                     >
                         <strong>Just cancel</strong>
                         <span>
-                            The {topicWord} go back to Unscheduled topics
-                            without being pushed back.
+                            The {topicWord}{" "}
+                            {topics.length === 1 ? "goes" : "go"} back to
+                            Unscheduled topics without being pushed back.
                         </span>
                     </button>
                 </div>

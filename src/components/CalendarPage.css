@@ -174,7 +174,7 @@
     grid-template-columns: 220px minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     gap: 20px;
-    min-height: 240px;
+    min-height: 230px;
 }
 
 .calendar-layout .calendar-unscheduled {
@@ -225,6 +225,14 @@
     color: var(--muted);
     font-size: calc(14px + var(--font-bump));
     text-align: center;
+}
+
+/* Topics and activities sit in narrow day cells, so even a single long
+   word ("statements") breaks rather than spilling out of the chip. */
+.calendar-topic,
+.calendar-activity {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .calendar-topic {

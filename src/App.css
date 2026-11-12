@@ -696,6 +696,16 @@
     gap: 8px;
 }
 
+/* On a phone the semester dropdown narrows so it and "+ Add" fit the row. */
+.semester-with-add > label {
+    min-width: 0;
+}
+
+.semester-with-add > label select {
+    min-width: 0;
+    max-width: 100%;
+}
+
 .semester-with-add .add-semester {
     height: 38px;
     flex: none;
