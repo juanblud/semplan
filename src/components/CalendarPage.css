@@ -74,6 +74,16 @@
     font-weight: 600;
 }
 
+/* Grows to fit rather than spilling when the panel is too narrow for one
+   line. */
+.calendar-unscheduled button.calendar-create-topic {
+    height: auto;
+    min-height: 38px;
+    padding: 6px 12px;
+    line-height: 1.2;
+    text-wrap: balance;
+}
+
 .calendar-toolbar button:disabled,
 .calendar-unscheduled button:disabled {
     background: var(--soft-blue);
@@ -429,16 +439,81 @@
     font-size: calc(13px + var(--font-bump));
 }
 
+/* Activities are filled with a tint of their course's color and marked with
+   a clipboard, while topics stay plain white chips. */
 .calendar-activity {
+    --activity-fill: color-mix(
+        in srgb,
+        var(--course-color, var(--ud-blue)) 18%,
+        var(--surface)
+    );
+
     position: relative;
     display: flex;
     flex-direction: column;
     padding: 4px 6px;
     cursor: default;
     border: 2px solid var(--course-color, var(--ud-blue));
-    border-radius: 6px;
+    border-left-width: 6px;
+    border-radius: 4px;
+    background: var(--activity-fill);
     font-size: calc(13px + var(--font-bump));
     line-height: 1.3;
+}
+
+.calendar-activity-icon {
+    flex: none;
+    width: 1.1em;
+    height: 1.1em;
+    margin-right: 4px;
+    vertical-align: -0.2em;
+    fill: none;
+    stroke: var(--course-color, var(--ud-blue));
+    stroke-linecap: round;
+    stroke-width: 1.6;
+}
+
+/* ---------- Key: topic vs activity ---------- */
+
+.calendar-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 0 8px;
+    padding: 0;
+    color: var(--muted);
+    font-size: calc(14px + var(--font-bump));
+    list-style: none;
+}
+
+.calendar-legend li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.calendar-legend-swatch {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 18px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--ud-blue);
+    border-radius: 4px;
+    background: var(--surface);
+}
+
+.calendar-legend-swatch.is-activity {
+    --course-color: var(--ud-blue);
+
+    border: 2px solid var(--ud-blue);
+    border-left-width: 6px;
+    background: color-mix(in srgb, var(--ud-blue) 18%, var(--surface));
+}
+
+.calendar-legend-swatch .calendar-activity-icon {
+    margin: 0;
+    font-size: 12px;
 }
 
 .calendar-activity[draggable="true"] {
@@ -519,6 +594,12 @@
     background: var(--surface);
     font-size: calc(14px + var(--font-bump));
     text-align: center;
+}
+
+/* Keeps activities' tint in the week view, which gives meeting contents a
+   plain background above. */
+.calendar-grid.is-week .calendar-meeting .calendar-activity {
+    background: var(--activity-fill);
 }
 
 .calendar-grid.is-week .calendar-meeting .calendar-placeholder {
@@ -836,6 +917,114 @@
 
 .calendar-dialog-actions button.is-danger {
     background: #b03a2e;
+}
+
+/* Choosing what happens to a cancelled class's topics. */
+.calendar-dialog:has(.cancel-plan-options) {
+    width: min(100%, 460px);
+}
+
+.cancel-plan-topics {
+    margin: -8px 0 14px;
+    padding-left: 20px;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 600;
+}
+
+.cancel-plan-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 16px;
+}
+
+.cancel-plan-option {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--ud-blue);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-size: calc(15px + var(--font-bump));
+    text-align: left;
+}
+
+button.cancel-plan-option {
+    cursor: pointer;
+    transition:
+        background 140ms ease,
+        border-color 140ms ease;
+}
+
+button.cancel-plan-option:hover,
+button.cancel-plan-option:focus-visible {
+    border-left-color: var(--ud-gold);
+    background: var(--soft-gold);
+}
+
+.cancel-plan-option strong {
+    color: var(--ud-blue);
+}
+
+.cancel-plan-option span {
+    color: var(--muted);
+    font-size: calc(13px + var(--font-bump));
+    line-height: 1.4;
+}
+
+.cancel-plan-option.is-plain {
+    border-left-color: #b03a2e;
+}
+
+.cancel-plan-option.is-plain strong {
+    color: #b03a2e;
+}
+
+.cancel-plan-option.is-reschedule {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.cancel-plan-option.is-reschedule label {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.cancel-plan-option.is-reschedule select {
+    height: 34px;
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-size: calc(14px + var(--font-bump));
+}
+
+.cancel-plan-option.is-reschedule button {
+    height: 34px;
+    padding: 2px 12px;
+    border: 2px solid var(--ud-blue);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ud-blue);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cancel-plan-option.is-reschedule button:hover {
+    background: var(--blue-fill);
+    color: #fff;
 }
 
 .calendar-notice {

@@ -1269,6 +1269,13 @@ describe("CalendarPage", () => {
                     name: "Mark as Cancelled",
                 }),
             );
+            const choices = screen.getByRole("dialog", {
+                name: "Cancel Class",
+            });
+            expect(choices).toHaveTextContent("Immutability");
+            await user.click(
+                within(choices).getByRole("button", { name: /^Just cancel/ }),
+            );
 
             const monday = getDay("Monday, October 12, 2026");
             expect(
@@ -1278,7 +1285,7 @@ describe("CalendarPage", () => {
                 within(unscheduled).getByText("Immutability"),
             ).toBeInTheDocument();
             expect(screen.getByRole("status")).toHaveTextContent(
-                "CISC 275 class on Monday, October 12, 2026 cancelled.",
+                "CISC 275 class on Monday, October 12, 2026 cancelled. Topics moved to Unscheduled topics.",
             );
 
             await user.click(screen.getByRole("button", { name: "Undo" }));
@@ -1286,6 +1293,145 @@ describe("CalendarPage", () => {
                 within(getDay("Monday, October 12, 2026")).getByText(
                     "Immutability",
                 ),
+            ).toBeInTheDocument();
+            expect(screen.queryByRole("status")).not.toBeInTheDocument();
+        });
+
+        // Opens Monday's class and asks to cancel it, which brings up the
+        // choices for its topics.
+        async function startCancellingMonday(user: User) {
+            await user.click(
+                screen.getByRole("button", {
+                    name: "Class meeting on Monday, October 12, 2026",
+                }),
+            );
+            await user.click(
+                screen.getByRole("button", { name: "Mark as Cancelled" }),
+            );
+            return screen.getByRole("dialog", { name: "Cancel Class" });
+        }
+
+        test("pushes a cancelled class's plans back one class, shifting later ones until an empty class", async () => {
+            const user = setupUser();
+            localStorage.setItem(
+                "semester-planner:calendar-items",
+                JSON.stringify(
+                    [
+                        ["Immutability", "2026-10-12"],
+                        ["State", "2026-10-14"],
+                        ["Testing", "2026-10-19"],
+                    ].map(([title, date]) => ({
+                        id: title,
+                        course: "CISC 275",
+                        semester: "Fall 2026",
+                        kind: "topic",
+                        title,
+                        date,
+                    })),
+                ),
+            );
+            render(<CalendarPage />);
+            await chooseCourse(user);
+
+            const choices = await startCancellingMonday(user);
+            await user.click(
+                within(choices).getByRole("button", {
+                    name: /^Push plans back one class/,
+                }),
+            );
+
+            // Friday had nothing planned, so it takes State and the shift
+            // stops there: Testing stays on the next Monday.
+            expect(
+                within(getDay("Wednesday, October 14, 2026")).getByText(
+                    "Immutability",
+                ),
+            ).toBeInTheDocument();
+            expect(
+                within(getDay("Friday, October 16, 2026")).getByText("State"),
+            ).toBeInTheDocument();
+            expect(
+                within(getDay("Monday, October 19, 2026")).getByText("Testing"),
+            ).toBeInTheDocument();
+            expect(screen.getByRole("status")).toHaveTextContent(
+                "Plans pushed back one class.",
+            );
+
+            await user.click(screen.getByRole("button", { name: "Undo" }));
+            expect(
+                within(getDay("Monday, October 12, 2026")).getByText(
+                    "Immutability",
+                ),
+            ).toBeInTheDocument();
+            expect(
+                within(getDay("Wednesday, October 14, 2026")).getByText(
+                    "State",
+                ),
+            ).toBeInTheDocument();
+        });
+
+        test("moves a cancelled class's topics to the next class", async () => {
+            const user = setupUser();
+            render(<CalendarPage />);
+            await chooseCourse(user);
+
+            const choices = await startCancellingMonday(user);
+            await user.click(
+                within(choices).getByRole("button", {
+                    name: /^Move to the next class/,
+                }),
+            );
+
+            const wednesday = getDay("Wednesday, October 14, 2026");
+            expect(within(wednesday).getByText("Immutability")).toBeVisible();
+            expect(
+                within(wednesday).getByText("Higher Order Array Methods"),
+            ).toBeVisible();
+            expect(screen.getByRole("status")).toHaveTextContent(
+                "Topics moved to Wednesday, October 14, 2026.",
+            );
+        });
+
+        test("reschedules a cancelled class's topics to a chosen class", async () => {
+            const user = setupUser();
+            render(<CalendarPage />);
+            await chooseCourse(user);
+
+            const choices = await startCancellingMonday(user);
+            await user.selectOptions(
+                within(choices).getByRole("combobox", {
+                    name: "Reschedule to another class",
+                }),
+                "Monday, October 19, 2026",
+            );
+            await user.click(
+                within(choices).getByRole("button", { name: "Move Here" }),
+            );
+
+            expect(
+                within(getDay("Monday, October 19, 2026")).getByText(
+                    "Immutability",
+                ),
+            ).toBeInTheDocument();
+            expect(
+                within(getDay("Wednesday, October 14, 2026")).queryByText(
+                    "Immutability",
+                ),
+            ).not.toBeInTheDocument();
+        });
+
+        test("goes back from the cancel choices without cancelling", async () => {
+            const user = setupUser();
+            render(<CalendarPage />);
+            await chooseCourse(user);
+
+            const choices = await startCancellingMonday(user);
+            await user.click(
+                within(choices).getByRole("button", { name: "Back" }),
+            );
+
+            expect(
+                screen.getByRole("dialog", { name: "Class Meeting" }),
             ).toBeInTheDocument();
             expect(screen.queryByRole("status")).not.toBeInTheDocument();
         });
