@@ -15,8 +15,11 @@ function loadSelectedSemester(): string | null {
 // doesn't offer that semester shows the default without forgetting the choice.
 export function useSelectedSemester(
     available: string[],
+    initialSemester?: string,
 ): [string, (name: string) => void] {
-    const [saved, setSaved] = useState(loadSelectedSemester);
+    const [saved, setSaved] = useState(
+        () => initialSemester ?? loadSelectedSemester(),
+    );
 
     function select(name: string) {
         setSaved(name);
