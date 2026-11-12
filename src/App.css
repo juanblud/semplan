@@ -958,6 +958,70 @@
     color: var(--muted);
 }
 
+/* A professor's "Needs attention" list on Home, worked out from their
+   courses and calendar. */
+.attention-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    margin: 0;
+    padding: 0 4px 4px 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.attention-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--ud-blue);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+    font-size: calc(15px + var(--font-bump));
+    line-height: 1.35;
+}
+
+.attention-list li > span {
+    flex: 1;
+    min-width: 0;
+}
+
+.attention-list strong {
+    color: var(--ud-navy);
+}
+
+.attention-list button {
+    flex: none;
+    padding: 5px 12px;
+    border: 2px solid var(--ud-blue);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ud-blue);
+    cursor: pointer;
+    font: inherit;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 600;
+}
+
+.attention-list button:hover {
+    background: var(--blue-fill);
+    color: #fff;
+}
+
+.attention-clear {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--ud-gold);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--muted);
+}
+
 .todo-table-wrap {
     overflow-x: auto;
     border: 1px solid var(--line);

@@ -277,6 +277,11 @@ export function App({
                             setCalendarCourse(course);
                             setCalendarReflectionOpen(true);
                         }}
+                        onPlanCourse={(course) => {
+                            navigate("calendar");
+                            setCalendarCourse(course);
+                        }}
+                        onEditCourses={() => navigate("courses")}
                     />
                 : page === "courses" ?
                     <CoursesPage

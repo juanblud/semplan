@@ -4,14 +4,20 @@ import { AddSemesterButton } from "./AddSemesterButton";
 import type { Course } from "./CoursesPage";
 import { HomeWeekView } from "./HomeWeekView";
 import {
+    CANCELLED_KEY,
     getCalendarSemesters,
     loadCalendarItems,
     loadSaved,
 } from "./calendarStorage";
+import { addDays, parseDateKey, toDateKey } from "./calendarDates";
+import { getCoursePlan } from "./coursePlan";
 import type { Role } from "./SettingsPage";
 import { useSelectedSemester } from "./useSelectedSemester";
 
 const COMPLETED_ACTIVITIES_KEY = "semplan:completed-activities";
+
+// How soon before grades are due Home starts mentioning it.
+const GRADING_NOTICE_DAYS = 30;
 
 interface HomePageProps {
     courses: Course[];
@@ -20,6 +26,27 @@ interface HomePageProps {
     showTasks: boolean;
     onToggleTask: (id: number) => void;
     onOpenCourse: (course: Course) => void;
+    // Opens a course in the Calendar to plan it.
+    onPlanCourse?: (course: Course) => void;
+    // Opens the Courses page, where course details are edited.
+    onEditCourses?: () => void;
+}
+
+// One thing for a professor to look at, with the place to sort it out.
+interface AttentionItem {
+    id: string;
+    course?: Course;
+    text: string;
+    action: string;
+    onAction?: () => void;
+}
+
+function formatShortDate(key: string): string {
+    return parseDateKey(key).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+    });
 }
 
 export function HomePage({
@@ -29,12 +56,17 @@ export function HomePage({
     role,
     showTasks,
     onToggleTask,
+    onPlanCourse,
+    onEditCourses,
 }: HomePageProps) {
     const calendarSemesters = getCalendarSemesters(courses);
     const semesters = calendarSemesters.map((term) => term.name);
     const [semester, setSemester] = useSelectedSemester(semesters);
     const [now, setNow] = useState(() => new Date());
     const [activities] = useState(loadCalendarItems);
+    const [cancelledClasses] = useState(() =>
+        loadSaved<string>(CANCELLED_KEY, []),
+    );
     const [completedActivities, setCompletedActivities] = useState(() =>
         loadSaved<string>(COMPLETED_ACTIVITIES_KEY, []),
     );
@@ -97,11 +129,91 @@ export function HomePage({
         (course) => course.semester === semester,
     );
 
+    // Professors get a list worked out from what they've already entered:
+    // nothing here asks them to type anything.
+    const showAttention = role === "professor";
+    const attention: AttentionItem[] = [];
+    if (showAttention && selectedSemester) {
+        for (const course of visibleCourses) {
+            const plan = getCoursePlan(
+                course,
+                selectedSemester,
+                activities,
+                cancelledClasses,
+                now,
+            );
+            if (!plan.hasSchedule) {
+                attention.push({
+                    id: `${course.id}-schedule`,
+                    course,
+                    text: "No meeting times set, so no classes to plan.",
+                    action: "Add times",
+                    onAction: onEditCourses,
+                });
+                continue;
+            }
+            // One line per course, so the list stays short with many courses.
+            const notes: string[] = [];
+            if (plan.emptyClassesThisWeek.length > 0) {
+                const [first] = plan.emptyClassesThisWeek;
+                const more = plan.emptyClassesThisWeek.length - 1;
+                notes.push(
+                    `${formatShortDate(first)} has nothing planned${
+                        more > 0 ? ` (+${more} more this week)` : ""
+                    }`,
+                );
+            }
+            if (plan.unscheduledTopics > 0) {
+                notes.push(
+                    `${plan.unscheduledTopics} unscheduled ${
+                        plan.unscheduledTopics === 1 ? "topic" : "topics"
+                    } for ${plan.classesLeft} ${
+                        plan.classesLeft === 1 ? "class" : "classes"
+                    } left`,
+                );
+            }
+            if (notes.length > 0) {
+                attention.push({
+                    id: course.id,
+                    course,
+                    text: `${notes.join("; ")}.`,
+                    action: "Plan",
+                    onAction: () => onPlanCourse?.(course),
+                });
+            }
+        }
+        const gradingEnd = selectedSemester.gradingEnd;
+        if (
+            gradingEnd &&
+            gradingEnd >= today &&
+            gradingEnd <= toDateKey(addDays(now, GRADING_NOTICE_DAYS))
+        ) {
+            const days = Math.round(
+                (parseDateKey(gradingEnd).getTime() -
+                    parseDateKey(today).getTime()) /
+                    86_400_000,
+            );
+            attention.unshift({
+                id: "grading",
+                text: `Grades are due ${
+                    days === 0 ? "today"
+                    : days === 1 ? "tomorrow"
+                    : `in ${days} days`
+                } (${formatShortDate(gradingEnd)}).`,
+                action: "",
+            });
+        }
+    }
+
     return (
         <section className="home-page">
             <header className="home-header">
                 <h1>SemPlan</h1>
-                <p>Your favorite place to plan your semester!</p>
+                <p>
+                    {role === "professor" ?
+                        "Your courses at a glance, and what needs planning next."
+                    :   "Your favorite place to plan your semester!"}
+                </p>
             </header>
 
             <section
@@ -138,7 +250,9 @@ export function HomePage({
                 />
             )}
 
-            <div className={`home-columns${showTasks ? " has-tasks" : ""}`}>
+            <div
+                className={`home-columns${showTasks || showAttention ? " has-tasks" : ""}`}
+            >
                 <section
                     className="courses-section"
                     aria-labelledby="courses-title"
@@ -173,6 +287,53 @@ export function HomePage({
                         </p>
                     }
                 </section>
+
+                {showAttention && (
+                    <section
+                        className="todo-section attention-section"
+                        aria-labelledby="attention-title"
+                    >
+                        <h2 id="attention-title">Needs attention</h2>
+                        {attention.length === 0 ?
+                            <p className="attention-clear">
+                                You&apos;re all set: every class this week has
+                                something planned.
+                            </p>
+                        :   <ul className="attention-list">
+                                {attention.map((item) => (
+                                    <li
+                                        key={item.id}
+                                        style={
+                                            item.course && {
+                                                borderLeftColor:
+                                                    item.course.color,
+                                            }
+                                        }
+                                    >
+                                        <span>
+                                            {item.course && (
+                                                <strong>
+                                                    {item.course.code}
+                                                    {item.course.section &&
+                                                        ` (${item.course.section})`}
+                                                </strong>
+                                            )}{" "}
+                                            {item.text}
+                                        </span>
+                                        {item.action && item.onAction && (
+                                            <button
+                                                type="button"
+                                                onClick={item.onAction}
+                                            >
+                                                {item.action}
+                                            </button>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        }
+                    </section>
+                )}
 
                 {showTasks && (
                     <section

@@ -18,6 +18,8 @@ import { MeetingScheduleFields } from "./MeetingScheduleFields";
 import type { MeetingSchedule, MeetingTime } from "./MeetingScheduleFields";
 import { parseDateKey } from "./calendarDates";
 import { AddSemesterButton } from "./AddSemesterButton";
+import { getCoursePlan } from "./coursePlan";
+import type { CoursePlan } from "./coursePlan";
 import type { Role } from "./SettingsPage";
 import { useSelectedSemester } from "./useSelectedSemester";
 
@@ -67,6 +69,92 @@ const initialCourses: Course[] = [
 ];
 function normalize(value: string) {
     return value.toLowerCase().replace(/\s/g, "");
+}
+
+const LAST_INSTRUCTOR_KEY = "semplan:last-instructor";
+
+function loadLastInstructor(): string {
+    try {
+        return localStorage.getItem(LAST_INSTRUCTOR_KEY) ?? "";
+    } catch {
+        return "";
+    }
+}
+
+function saveLastInstructor(name: string) {
+    try {
+        localStorage.setItem(LAST_INSTRUCTOR_KEY, name);
+    } catch {
+        // Only a convenience; the course itself still saves.
+    }
+}
+
+// The blank details a course card offers to fill in, e.g. "instructor and
+// location". A section is optional, so it isn't asked for.
+function missingDetails(course: Course): string {
+    const missing = [
+        !course.instructor && "instructor",
+        !course.schedule && "meeting times",
+        !course.location && "location",
+    ].filter((entry): entry is string => Boolean(entry));
+    return missing.length > 1 ?
+            `${missing.slice(0, -1).join(", ")} and ${missing.at(-1)}`
+        :   (missing.at(0) ?? "");
+}
+
+function formatShortDate(key: string): string {
+    return parseDateKey(key).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+    });
+}
+
+// A professor's at-a-glance plan for a course, in place of student tasks.
+function CoursePlanSummary({ plan }: { plan?: CoursePlan }) {
+    if (!plan?.hasSchedule) {
+        return (
+            <div className="course-task-summary">
+                <strong>No class meetings yet</strong>
+                <p>Add meeting times to see classes left and plan topics.</p>
+            </div>
+        );
+    }
+    const unplanned = plan.classesLeft - plan.plannedClassesLeft;
+    return (
+        <div className="course-task-summary course-plan-summary">
+            <strong>
+                {plan.classesLeft}{" "}
+                {plan.classesLeft === 1 ? "class" : "classes"} left
+                {plan.nextClass && ` · next ${formatShortDate(plan.nextClass)}`}
+            </strong>
+            {plan.classesLeft > 0 && (
+                <div
+                    className="course-plan-meter"
+                    role="img"
+                    aria-label={`${plan.plannedClassesLeft} of ${plan.classesLeft} upcoming classes planned`}
+                >
+                    <span
+                        style={{
+                            width: `${(plan.plannedClassesLeft / plan.classesLeft) * 100}%`,
+                        }}
+                    />
+                </div>
+            )}
+            <p>
+                {plan.classesLeft === 0 ?
+                    "No classes left this semester."
+                : unplanned === 0 ?
+                    "Every upcoming class has something planned."
+                :   `${plan.plannedClassesLeft} of ${plan.classesLeft} planned · ${unplanned} still open`
+                }
+                {plan.unscheduledTopics > 0 &&
+                    ` · ${plan.unscheduledTopics} unscheduled ${
+                        plan.unscheduledTopics === 1 ? "topic" : "topics"
+                    }`}
+            </p>
+        </div>
+    );
 }
 function parseMeetingSchedule(schedule: string): MeetingSchedule {
     const times = schedule.match(
@@ -185,6 +273,12 @@ export function CoursesPage({
         useState<SavedTemplate | null>(null);
     const [error, setError] = useState("");
     const [storageError, setStorageError] = useState("");
+    // Read once per visit for the professor's plan summary on each card.
+    const [calendarItems] = useState(loadCalendarItems);
+    const [cancelledClasses] = useState(() =>
+        loadSaved<string>(CANCELLED_KEY, []),
+    );
+    const [today] = useState(() => new Date());
     const dialog = useRef<HTMLDialogElement>(null);
     function updateCourses(update: (current: Course[]) => Course[]): boolean {
         const next = update(courses);
@@ -263,8 +357,12 @@ export function CoursesPage({
                         (term) => term.name !== template.semester.name,
                     )?.name ?? semester)
                 :   semester,
+            // A professor usually teaches their own courses, so a new one
+            // starts with the name they gave last time.
             instructor:
-                template?.details?.instructor ?? source?.instructor ?? "",
+                template?.details?.instructor ??
+                source?.instructor ??
+                (role === "professor" ? loadLastInstructor() : ""),
             schedule: template?.details?.schedule ?? source?.schedule ?? "",
             location: template?.details?.location ?? source?.location ?? "",
             color: template?.details?.color ?? source?.color ?? "#00539f",
@@ -316,6 +414,9 @@ export function CoursesPage({
         if (!cleaned.code || !cleaned.title || !cleaned.semester) {
             setError("Enter a course code, name, and semester.");
             return;
+        }
+        if (role === "professor" && cleaned.instructor) {
+            saveLastInstructor(cleaned.instructor);
         }
         if (cleaned.section && !/^\d{3}$/.test(cleaned.section)) {
             setError("Section must be exactly three digits, such as 010.");
@@ -508,6 +609,19 @@ export function CoursesPage({
                         .sort((a, b) =>
                             a.finishDate.localeCompare(b.finishDate),
                         );
+                    const term = calendarSemesters.find(
+                        (option) => option.name === course.semester,
+                    );
+                    const plan =
+                        role === "professor" && term ?
+                            getCoursePlan(
+                                course,
+                                term,
+                                calendarItems,
+                                cancelledClasses,
+                                today,
+                            )
+                        :   undefined;
                     return (
                         <article
                             className="course-card"
@@ -541,49 +655,73 @@ export function CoursesPage({
                         >
                             <h2>{course.code}</h2>
                             <p className="course-name">{course.title}</p>
+                            {/* Only details that exist; the rest are one
+                                link below rather than rows of "Not added". */}
                             <dl className="course-facts">
-                                <div>
-                                    <dt>Section</dt>
-                                    <dd>{course.section || "Not added"}</dd>
-                                </div>
-                                <div>
-                                    <dt>Instructor(s)</dt>
-                                    <dd>{course.instructor || "Not added"}</dd>
-                                </div>
-                                <div>
-                                    <dt>Meets on</dt>
-                                    <dd>
-                                        {course.schedule ||
-                                            "Schedule not added"}
-                                        {course.startDate && course.endDate && (
-                                            <span className="course-meeting-dates">
-                                                {parseDateKey(
-                                                    course.startDate,
-                                                ).toLocaleDateString()}
-                                                {" – "}
-                                                {parseDateKey(
-                                                    course.endDate,
-                                                ).toLocaleDateString()}
-                                            </span>
-                                        )}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt>Location</dt>
-                                    <dd>{course.location || "Not added"}</dd>
-                                </div>
+                                {course.section && (
+                                    <div>
+                                        <dt>Section</dt>
+                                        <dd>{course.section}</dd>
+                                    </div>
+                                )}
+                                {course.instructor && (
+                                    <div>
+                                        <dt>Instructor(s)</dt>
+                                        <dd>{course.instructor}</dd>
+                                    </div>
+                                )}
+                                {course.schedule && (
+                                    <div>
+                                        <dt>Meets on</dt>
+                                        <dd>
+                                            {course.schedule}
+                                            {course.startDate &&
+                                                course.endDate && (
+                                                    <span className="course-meeting-dates">
+                                                        {parseDateKey(
+                                                            course.startDate,
+                                                        ).toLocaleDateString()}
+                                                        {" – "}
+                                                        {parseDateKey(
+                                                            course.endDate,
+                                                        ).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                        </dd>
+                                    </div>
+                                )}
+                                {course.location && (
+                                    <div>
+                                        <dt>Location</dt>
+                                        <dd>{course.location}</dd>
+                                    </div>
+                                )}
                             </dl>
-                            <div className="course-task-summary">
-                                <strong>
-                                    {pending.length} pending{" "}
-                                    {pending.length === 1 ? "task" : "tasks"}
-                                </strong>
-                                <p>
-                                    {pending[0] ?
-                                        `${pending[0].title} - Due ${new Date(`${pending[0].finishDate}T00:00:00`).toLocaleDateString("en-US")}`
-                                    :   "No pending tasks for this course."}
-                                </p>
-                            </div>
+                            {missingDetails(course) && (
+                                <button
+                                    type="button"
+                                    className="course-add-details"
+                                    onClick={() => openDraft({ ...course })}
+                                >
+                                    + Add {missingDetails(course)}
+                                </button>
+                            )}
+                            {role === "professor" ?
+                                <CoursePlanSummary plan={plan} />
+                            :   <div className="course-task-summary">
+                                    <strong>
+                                        {pending.length} pending{" "}
+                                        {pending.length === 1 ?
+                                            "task"
+                                        :   "tasks"}
+                                    </strong>
+                                    <p>
+                                        {pending[0] ?
+                                            `${pending[0].title} - Due ${new Date(`${pending[0].finishDate}T00:00:00`).toLocaleDateString("en-US")}`
+                                        :   "No pending tasks for this course."}
+                                    </p>
+                                </div>
+                            }
                             <ScheduleTemplateActions
                                 key={`${courseKey(course.code, course.section)}-${course.semester}`}
                                 code={course.code}
