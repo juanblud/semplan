@@ -1400,7 +1400,7 @@ describe("CalendarPage", () => {
             const choices = await startCancellingMonday(user);
             await user.selectOptions(
                 within(choices).getByRole("combobox", {
-                    name: "Reschedule to another class",
+                    name: /^Reschedule to another class/,
                 }),
                 "Monday, October 19, 2026",
             );
@@ -1418,6 +1418,26 @@ describe("CalendarPage", () => {
                     "Immutability",
                 ),
             ).not.toBeInTheDocument();
+        });
+
+        test("offers rescheduling only up to one month ahead", async () => {
+            const user = setupUser();
+            render(<CalendarPage />);
+            await chooseCourse(user);
+
+            const choices = await startCancellingMonday(user);
+            const options = within(
+                within(choices).getByRole("combobox", {
+                    name: /^Reschedule to another class/,
+                }),
+            )
+                .getAllByRole("option")
+                .map((option) => option.textContent);
+
+            // A month after Monday, October 12 is Thursday, November 12.
+            expect(options.at(0)).toBe("Wednesday, October 14, 2026");
+            expect(options.at(-1)).toBe("Wednesday, November 11, 2026");
+            expect(options).not.toContain("Friday, November 13, 2026");
         });
 
         test("goes back from the cancel choices without cancelling", async () => {
