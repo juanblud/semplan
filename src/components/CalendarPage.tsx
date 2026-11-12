@@ -136,6 +136,21 @@ function courseColorStyle(color?: string): CSSProperties | undefined {
     return color ? ({ "--course-color": color } as CSSProperties) : undefined;
 }
 
+// A clipboard marks activities (assignments, tests and the like) so they
+// stand apart from the plain topic chips.
+function ActivityIcon() {
+    return (
+        <svg
+            className="calendar-activity-icon"
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+        >
+            <rect x="3" y="3" width="10" height="12" rx="1.5" />
+            <path d="M6 2h4v2.5H6z M5.5 8h5 M5.5 11h3.5" />
+        </svg>
+    );
+}
+
 export function CalendarPage({
     role = "student",
     initialCourse,
