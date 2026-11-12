@@ -282,6 +282,16 @@ export function App({
                         role={settings.role}
                         initialCourse={calendarCourse ?? undefined}
                         initialReflectionOpen={calendarReflectionOpen}
+                        tasks={tasks}
+                        onToggleTask={(id) =>
+                            setTasks((current) =>
+                                current.map((task) =>
+                                    task.id === id ?
+                                        { ...task, completed: !task.completed }
+                                    :   task,
+                                ),
+                            )
+                        }
                     />
                 : page === "planning-notes" ?
                     <PlanningNotesPage courses={courses} />

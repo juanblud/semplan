@@ -32,7 +32,6 @@ test("edits scheduled task details and preserves completion", async () => {
         "Prepare slides",
     );
     await user.selectOptions(screen.getByLabelText("Class"), "CISC320");
-    await user.selectOptions(screen.getByLabelText("Section"), "011");
     await user.clear(screen.getByLabelText("Start date"));
     await user.type(screen.getByLabelText("Start date"), "2026-11-01");
     await user.clear(screen.getByLabelText("Finish date"));
@@ -42,7 +41,6 @@ test("edits scheduled task details and preserves completion", async () => {
     expect(checkbox).toBeChecked();
     const row = checkbox.closest("li")!;
     expect(within(row).getByText("CISC320")).toBeInTheDocument();
-    expect(within(row).getByText("011")).toBeInTheDocument();
     expect(within(row).getByText("11/01/2026")).toBeInTheDocument();
     expect(within(row).getByText("11/03/2026")).toBeInTheDocument();
     await user.click(
@@ -130,7 +128,7 @@ test("moves tasks between active and completed sections", async () => {
     ).toBeInTheDocument();
 });
 
-test("keeps tasks for identical courses and sections separate by semester", async () => {
+test("keeps tasks for identical courses separate by semester", async () => {
     const user = userEvent.setup();
     const fallCourse = taskCourses[0];
     const springCourse = {
@@ -151,7 +149,6 @@ test("keeps tasks for identical courses and sections separate by semester", asyn
     ).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Task"), "Task 4 HW");
     await user.selectOptions(screen.getByLabelText("Class"), "CISC275");
-    await user.selectOptions(screen.getByLabelText("Section"), "010");
     await user.type(screen.getByLabelText("Start date"), "2027-03-01");
     await user.type(screen.getByLabelText("Finish date"), "2027-03-07");
     await user.click(screen.getByRole("button", { name: "Add task" }));
@@ -172,7 +169,6 @@ test("keeps tasks for identical courses and sections separate by semester", asyn
     expect(screen.getByRole("checkbox", { name: "Task 4 HW" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Edit Task 4 HW" }));
     expect(screen.getByLabelText("Class")).toHaveValue("CISC275");
-    expect(screen.getByLabelText("Section")).toHaveValue("010");
     await user.clear(screen.getByLabelText("Task"));
     await user.type(screen.getByLabelText("Task"), "Spring homework");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
@@ -188,7 +184,6 @@ test("keeps tasks for identical courses and sections separate by semester", asyn
     expect(screen.getByLabelText("Start date")).toHaveValue("2027-03-01");
     expect(screen.getByLabelText("Finish date")).toHaveValue("2027-03-07");
     expect(screen.getByLabelText("Class")).toHaveValue("All");
-    expect(screen.getByLabelText("Section")).toHaveValue("All");
     expect(
         screen.getByRole("button", { name: "Save changes" }),
     ).toBeInTheDocument();
@@ -196,7 +191,6 @@ test("keeps tasks for identical courses and sections separate by semester", asyn
         screen.getByRole("checkbox", { name: "Task 4 HW" }),
     ).not.toBeChecked();
     await user.selectOptions(screen.getByLabelText("Class"), "CISC275");
-    await user.selectOptions(screen.getByLabelText("Section"), "010");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     const movedRow = screen
         .getByRole("checkbox", { name: "Spring homework" })
@@ -209,20 +203,14 @@ test("keeps tasks for identical courses and sections separate by semester", asyn
     ).not.toBeInTheDocument();
 });
 
-test("includes custom course semesters and their sections", async () => {
+test("includes custom course semesters", async () => {
     const user = userEvent.setup();
     const course = { ...taskCourses[0], semester: "Fall 2027", section: "020" };
     render(<TaskViewHarness startingTasks={[]} courses={[course]} />);
     await user.selectOptions(screen.getByLabelText("Semester"), "Fall 2027");
-    await user.selectOptions(screen.getByLabelText("Class"), "CISC275");
     expect(
-        within(screen.getByLabelText("Section")).getByRole("option", {
-            name: "020",
+        within(screen.getByLabelText("Class")).getByRole("option", {
+            name: "CISC275",
         }),
     ).toBeInTheDocument();
-    expect(
-        within(screen.getByLabelText("Section")).queryByRole("option", {
-            name: "010",
-        }),
-    ).not.toBeInTheDocument();
 });

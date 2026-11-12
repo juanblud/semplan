@@ -20,6 +20,7 @@ import {
 import type { WeekLabel, WeekReflection } from "./calendarStorage";
 import type { CalendarItem } from "./scheduleTemplate";
 import type { Role } from "./SettingsPage";
+import type { Task } from "../tasks";
 import { WeekReflectionPanel } from "./WeekReflectionPanel";
 import "./CalendarPage.css";
 import {
@@ -152,14 +153,23 @@ function ActivityIcon() {
     );
 }
 
+function formatShortTaskDate(date: string): string {
+    const [, month, day] = date.split("-");
+    return `${Number(month)}/${Number(day)}`;
+}
+
 export function CalendarPage({
     role = "student",
     initialCourse,
     initialReflectionOpen = false,
+    tasks = [],
+    onToggleTask,
 }: {
     role?: Role;
     initialCourse?: CalendarCourseSelection;
     initialReflectionOpen?: boolean;
+    tasks?: Task[];
+    onToggleTask?: (id: number) => void;
 }) {
     const [savedCourses] = useState(loadCourses);
     const semesters = getCalendarSemesters(savedCourses);
@@ -324,6 +334,19 @@ export function CalendarPage({
             item.semester === semesterName &&
             (item.course === UNASSIGNED ||
                 visibleCourses.some((option) => option.code === item.course)),
+    );
+    function normalizeCourseCode(code: string): string {
+        return code.split(" - Section")[0].replace(/\s+/g, "").toUpperCase();
+    }
+    const visibleTaskCourses =
+        showAll ?
+            visibleCourses.map((option) => normalizeCourseCode(option.code))
+        :   [normalizeCourseCode(course.code)];
+    const calendarTasks = tasks.filter(
+        (task) =>
+            task.semester === semesterName &&
+            (task.course === "All" ||
+                visibleTaskCourses.includes(normalizeCourseCode(task.course))),
     );
     const draggedItem = items.find((item) => item.id === draggedId);
     const weekCount = getSemesterWeekCount(semester.start, semester.end);
@@ -782,6 +805,32 @@ export function CalendarPage({
         );
     }
 
+    function renderTask(task: Task) {
+        return (
+            <div
+                key={task.id}
+                className={`calendar-task${task.completed ? " is-complete" : ""}`}
+                role="group"
+                aria-label={task.title}
+            >
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => onToggleTask?.(task.id)}
+                        disabled={!onToggleTask}
+                    />
+                    <strong>{task.title}</strong>
+                </label>
+                <span>
+                    {task.course === "All" ? "Task" : task.course} ·{" "}
+                    {"Due\u00a0"}
+                    {formatShortTaskDate(task.finishDate)}
+                </span>
+            </div>
+        );
+    }
+
     function renderMeeting(
         meeting: Course,
         date: Date,
@@ -867,6 +916,9 @@ export function CalendarPage({
         const key = toDateKey(date);
         const meetings = getMeetings(date);
         const dayItems = courseItems.filter((item) => item.date === key);
+        const dayTasks = calendarTasks.filter(
+            (task) => task.startDate <= key && key <= task.finishDate,
+        );
         // Activities sit in their course's meeting when it meets that day.
         const looseActivities = dayItems
             .filter(
@@ -919,35 +971,41 @@ export function CalendarPage({
                     })
                 }
             >
-                {view === "month" && (
-                    <span className="calendar-date">
-                        {/* The 1st names its month, marking where one ends. */}
-                        {date.getDate() === 1 ?
-                            date.toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                            })
-                        :   date.getDate()}
-                    </span>
-                )}
-                {dayEvents.map((event) => (
-                    <p key={event.id} className="calendar-event">
-                        {event.summary ?? "Busy"}
-                    </p>
-                ))}
-                {role === "professor" && key === semester.gradingEnd && (
-                    <p className="calendar-event">Grading period ends</p>
-                )}
-                {meetings.map((meeting) =>
-                    renderMeeting(meeting, date, dayItems),
-                )}
-                {looseActivities}
-                {view === "week" &&
-                    meetings.length === 0 &&
-                    looseActivities.length === 0 &&
-                    dayEvents.length === 0 && (
-                        <p className="calendar-placeholder">Nothing Planned</p>
+                <div className="calendar-day-content">
+                    {view === "month" && (
+                        <span className="calendar-date">
+                            {/* The 1st names its month, marking where one ends. */}
+                            {date.getDate() === 1 ?
+                                date.toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                })
+                            :   date.getDate()}
+                        </span>
                     )}
+                    {dayEvents.map((event) => (
+                        <p key={event.id} className="calendar-event">
+                            {event.summary ?? "Busy"}
+                        </p>
+                    ))}
+                    {role === "professor" && key === semester.gradingEnd && (
+                        <p className="calendar-event">Grading period ends</p>
+                    )}
+                    {meetings.map((meeting) =>
+                        renderMeeting(meeting, date, dayItems),
+                    )}
+                    {looseActivities}
+                    {dayTasks.map(renderTask)}
+                    {view === "week" &&
+                        meetings.length === 0 &&
+                        looseActivities.length === 0 &&
+                        dayTasks.length === 0 &&
+                        dayEvents.length === 0 && (
+                            <p className="calendar-placeholder">
+                                Nothing Planned
+                            </p>
+                        )}
+                </div>
             </td>
         );
     }

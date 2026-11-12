@@ -350,6 +350,22 @@
     margin-top: 6px;
 }
 
+.calendar-day-content > * + * {
+    margin-top: 6px;
+}
+
+.calendar-grid.is-month .calendar-day {
+    height: 190px;
+    padding: 0;
+}
+
+.calendar-grid.is-month .calendar-day-content {
+    height: 190px;
+    overflow-y: auto;
+    padding: 6px;
+    scrollbar-gutter: stable;
+}
+
 .calendar-date {
     display: inline-block;
     min-width: 26px;
@@ -561,6 +577,66 @@
     font-size: 12px;
 }
 
+.calendar-task {
+    display: grid;
+    gap: 0.1rem;
+    margin-top: 0.25rem;
+    padding: 0.3rem 0.35rem;
+    border-left: 3px solid var(--ud-blue);
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, var(--ud-blue) 18%, transparent);
+    color: var(--ink);
+    overflow: hidden;
+    font-size: 0.76rem;
+}
+
+.calendar-task label {
+    position: relative;
+    display: block;
+    padding-right: 0.85rem;
+}
+
+.calendar-task strong {
+    display: block;
+    text-align: center;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
+
+.calendar-task > span {
+    display: block;
+    padding: 0;
+    color: var(--muted);
+    overflow: hidden;
+    font-size: 0.65rem;
+    line-height: 1.2;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendar-task input {
+    position: absolute;
+    top: 0.1rem;
+    right: 0;
+    margin: 0;
+}
+
+/* Month cells are intentionally compact: give the task name all the room
+   available and keep the due metadata for the more spacious week view. */
+.calendar-grid.is-month .calendar-task {
+    padding: 0.25rem 0.2rem;
+}
+
+.calendar-grid.is-month .calendar-task > span {
+    display: none;
+}
+
+.calendar-task.is-complete {
+    opacity: 0.65;
+    text-decoration: line-through;
+}
+
 .calendar-activity[draggable="true"] {
     cursor: grab;
 }
@@ -603,6 +679,10 @@
     padding: 8px;
 }
 
+.calendar-grid.is-week .calendar-day-content {
+    height: 100%;
+}
+
 .calendar-grid.is-week .calendar-day:not(:has(.calendar-meeting)) {
     vertical-align: middle;
 }
@@ -625,7 +705,7 @@
     min-height: 120px;
 }
 
-.calendar-grid.is-week .calendar-day > .calendar-meeting:only-child {
+.calendar-grid.is-week .calendar-day-content > .calendar-meeting:only-child {
     height: 100%;
 }
 
