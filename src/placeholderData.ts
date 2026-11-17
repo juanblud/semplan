@@ -13,7 +13,6 @@ import type { WeekLabel, WeekReflection } from "./components/calendarStorage";
 import { loadCourses } from "./components/CoursesPage";
 import type { Course } from "./components/CoursesPage";
 import type { CalendarItem, Semester } from "./components/scheduleTemplate";
-import type { Task } from "./tasks";
 
 // These match the storage keys inside CoursesPage and PlanningNotesPage.
 const COURSES_KEY = "semester-planner-courses-v1";
@@ -78,54 +77,6 @@ const placeholderCourses: Course[] = [
         schedule: "Fri 1:25 PM - 2:15 PM",
         location: "Room 505",
         color: "#b8860b",
-    },
-];
-
-export const placeholderTasks: Task[] = [
-    {
-        id: 101,
-        title: "Problem Set 7",
-        course: "MATH 241",
-        semester: FALL,
-        startDate: "2026-11-05",
-        finishDate: "2026-11-12",
-        completed: false,
-    },
-    {
-        id: 102,
-        title: "Essay 2 draft",
-        course: "ENGL 110",
-        semester: FALL,
-        startDate: "2026-11-02",
-        finishDate: "2026-11-10",
-        completed: false,
-    },
-    {
-        id: 103,
-        title: "Lab report 5",
-        course: "PHYS 207",
-        semester: FALL,
-        startDate: "2026-11-09",
-        finishDate: "2026-11-13",
-        completed: false,
-    },
-    {
-        id: 104,
-        title: "Linked list project",
-        course: "CISC 220",
-        semester: FALL,
-        startDate: "2026-11-04",
-        finishDate: "2026-11-18",
-        completed: false,
-    },
-    {
-        id: 105,
-        title: "Reading response 4",
-        course: "HIST 104",
-        semester: FALL,
-        startDate: "2026-11-01",
-        finishDate: "2026-11-06",
-        completed: true,
     },
 ];
 

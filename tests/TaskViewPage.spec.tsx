@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { initialTasks } from "../src/tasks";
+import { initialTasks } from "./fixtures/tasks";
 import type { Task } from "../src/tasks";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

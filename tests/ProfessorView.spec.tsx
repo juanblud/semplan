@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { CoursesPage, loadCourses } from "../src/components/CoursesPage";
 import type { Course } from "../src/components/CoursesPage";
 import { HomePage } from "../src/components/HomePage";
-import { initialTasks } from "../src/tasks";
+import { initialTasks } from "./fixtures/tasks";
 
 beforeAll(() => {
     HTMLDialogElement.prototype.showModal = function () {

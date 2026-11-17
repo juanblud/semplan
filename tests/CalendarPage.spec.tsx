@@ -42,6 +42,61 @@ describe("CalendarPage", () => {
         localStorage.clear();
     });
 
+    test.each(["month", "week"])(
+        "prints the current %s view without changing its course, dates, or day filter",
+        async (view) => {
+            const user = userEvent.setup();
+            const print = jest
+                .spyOn(window, "print")
+                .mockImplementation(() => {});
+            try {
+                const { container } = render(<CalendarPage role="professor" />);
+                await showOctober2026(user);
+                await chooseCourse(user);
+                if (view === "week") {
+                    await user.click(
+                        screen.getByRole("button", { name: "Weekly" }),
+                    );
+                }
+                await user.selectOptions(
+                    screen.getByRole("combobox", { name: "Days" }),
+                    "mwf",
+                );
+                const calendar = screen.getByRole("table");
+                const content = calendar.textContent;
+                const dateHeading = screen.getAllByRole("heading", {
+                    level: 2,
+                })[0];
+                const dateRange = dateHeading.textContent;
+
+                await user.click(screen.getByRole("button", { name: "Print" }));
+
+                expect(print).toHaveBeenCalledTimes(1);
+                expect(screen.getByRole("table")).toBe(calendar);
+                expect(calendar.textContent).toBe(content);
+                expect(dateHeading.textContent).toBe(dateRange);
+                expect(
+                    screen.getByRole("combobox", { name: "Course" }),
+                ).toHaveValue("CISC 275");
+                expect(
+                    screen.getByRole("combobox", { name: "Days" }),
+                ).toHaveValue("mwf");
+                const printHeader = container.querySelector(
+                    ".page-header .calendar-print-only",
+                );
+                expect(printHeader).toHaveTextContent("Fall 2026 · CISC 275");
+                expect(printHeader).toHaveTextContent(
+                    "Monday, Wednesday, Friday",
+                );
+                expect(printHeader).toHaveTextContent(
+                    view === "week" ? "Weekly view" : "Monthly view",
+                );
+            } finally {
+                print.mockRestore();
+            }
+        },
+    );
+
     test.each([
         {
             semester: "Fall 2027",

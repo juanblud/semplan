@@ -1,5 +1,9 @@
 /* Calendar page. Colors come from the UD palette tokens in App.css. */
 
+.calendar-print-only {
+    display: none;
+}
+
 .calendar-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -1539,4 +1543,172 @@ button.cancel-plan-option:focus-visible {
     font-weight: 500;
     line-height: 1.2;
     word-break: break-word;
+}
+
+/* Print the selected calendar, including content below its scroll areas. */
+@page calendar-schedule {
+    size: landscape;
+    margin: 10mm;
+}
+
+@media print {
+    .app-shell:has(.calendar-page) {
+        page: calendar-schedule;
+        color-scheme: light;
+    }
+
+    /* Override theme tokens locally so dark mode stays readable on paper. */
+    .calendar-page {
+        --ink: #111;
+        --muted: #444;
+        --line: #999;
+        --surface: #fff;
+        --canvas: #f4f4f4;
+        --field: #fff;
+        --ud-blue: #00539f;
+        --ud-blue-dark: #003a70;
+        --ud-navy: #002a52;
+        --blue-fill: #00539f;
+        --soft-blue: #edf3fa;
+        --soft-gold: #fff4c2;
+        --accent-ink: #002a52;
+
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+
+    body:has(.calendar-page),
+    .app-shell:has(.calendar-page),
+    .main-content:has(.calendar-page),
+    .main-content > .calendar-page {
+        display: block;
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+    }
+
+    .app-shell:has(.calendar-page) .sidebar,
+    .main-content:has(.calendar-page)::before,
+    .calendar-toolbar,
+    .calendar-month-nav > button,
+    .calendar-view-toggle,
+    .calendar-day-filters,
+    .calendar-week-strip,
+    .calendar-delete,
+    .calendar-topic-form,
+    .calendar-create-topic,
+    .calendar-unscheduled > p:not(.calendar-empty),
+    .calendar-week-label-bar input,
+    .calendar-reflection textarea,
+    .calendar-reflection-clear,
+    .calendar-notice button,
+    .calendar-dialog-backdrop {
+        display: none;
+    }
+
+    .calendar-print-only {
+        display: block;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-weight: 400;
+    }
+
+    .calendar-print-only p {
+        margin: 2px 0;
+        font-size: 11pt;
+    }
+
+    .calendar-page .page-header {
+        margin-bottom: 12px;
+    }
+
+    .calendar-month-nav {
+        break-after: avoid;
+    }
+
+    .calendar-page .calendar-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+    }
+
+    .calendar-layout .calendar-unscheduled {
+        order: 1;
+        align-self: stretch;
+        max-height: none;
+        overflow: visible;
+        box-shadow: none;
+    }
+
+    .calendar-grid-wrap {
+        overflow: visible;
+        box-shadow: none;
+    }
+
+    .calendar-page .calendar-grid {
+        min-width: 0 !important;
+        height: auto;
+    }
+
+    .calendar-grid thead {
+        display: table-header-group;
+    }
+
+    .calendar-grid thead th {
+        position: static;
+    }
+
+    .calendar-grid tr {
+        break-inside: avoid;
+    }
+
+    .calendar-page .calendar-grid .calendar-day,
+    .calendar-page .calendar-grid .calendar-day-content,
+    .calendar-grid.is-week
+        .calendar-day-content
+        > .calendar-meeting:only-child {
+        height: auto;
+        overflow: visible;
+    }
+
+    .calendar-grid.is-week .calendar-meeting {
+        min-height: 0;
+    }
+
+    .calendar-grid .calendar-task {
+        overflow: visible;
+    }
+
+    .calendar-grid .calendar-task > span {
+        overflow: visible;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .calendar-week-col button,
+    .calendar-topic,
+    .calendar-activity,
+    .calendar-meeting,
+    .calendar-task,
+    .calendar-reflection-questions label {
+        break-inside: avoid;
+    }
+
+    .calendar-reflection fieldset button[aria-pressed="true"] {
+        border: 2px solid var(--ink);
+        background: var(--soft-blue);
+        color: var(--ink);
+        font-weight: 700;
+    }
+
+    .calendar-week-col button small {
+        max-width: none;
+        overflow: visible;
+        white-space: normal;
+    }
 }

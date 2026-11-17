@@ -4,7 +4,7 @@ import { App } from "../src/App";
 import { HomePage } from "../src/components/HomePage";
 import { ITEMS_KEY } from "../src/components/calendarStorage";
 import type { CalendarItem } from "../src/components/scheduleTemplate";
-import { initialTasks } from "../src/tasks";
+import { initialTasks } from "./fixtures/tasks";
 
 beforeEach(() => {
     localStorage.clear();
@@ -380,7 +380,7 @@ test("home shows today's scheduled tasks and shares changes with Task View", asy
         const user = userEvent.setup({
             advanceTimers: jest.advanceTimersByTime,
         });
-        render(<App />);
+        render(<App startingTasks={initialTasks} />);
         expect(
             screen.getByRole("heading", {
                 name: "To-Do & Reminders: 11/3/2026",
