@@ -2,7 +2,7 @@ import type { CalendarItem } from "../src/components/scheduleTemplate";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CoursesPage, loadCourses } from "../src/components/CoursesPage";
-import { initialTasks } from "../src/tasks";
+import { initialTasks } from "./fixtures/tasks";
 
 beforeAll(() => {
     HTMLDialogElement.prototype.showModal = function () {

@@ -14,7 +14,6 @@ import type { ColorScheme, Role, Settings } from "./components/SettingsPage";
 import { TaskViewPage } from "./components/TaskViewPage";
 import { WelcomeRoleDialog } from "./components/WelcomeRoleDialog";
 
-import { initialTasks } from "./tasks";
 import type { Task } from "./tasks";
 
 type Page = "home" | "courses" | "calendar" | "planning-notes" | "tasks";
@@ -104,11 +103,7 @@ function getPageFromUrl(role: Role): Page {
         :   (requested ?? "home");
 }
 
-export function App({
-    startingTasks = initialTasks,
-}: {
-    startingTasks?: Task[];
-}) {
+export function App({ startingTasks = [] }: { startingTasks?: Task[] }) {
     const [settings, setSettings] = useState(loadSettings);
     const [tasks, setTasks] = useState(startingTasks);
     const [courses, setCourses] = useState(loadCourses);
