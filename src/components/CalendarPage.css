@@ -349,11 +349,60 @@
     padding: 0;
 }
 
+/* A month day doesn't scroll: it shows what fits, and a "+N more" button
+   (ClippedDay) opens the rest. */
 .calendar-grid.is-month .calendar-day-content {
+    position: relative;
     height: 190px;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 6px;
-    scrollbar-gutter: stable;
+}
+
+.calendar-day-items > * + * {
+    margin-top: 6px;
+}
+
+/* Items cut off by "+N more" fade out just above it rather than ending in
+   a sliver. The button's own strip stays fully visible. */
+.calendar-grid.is-month .calendar-day-content.has-more {
+    mask-image: linear-gradient(
+        to bottom,
+        #000 calc(100% - 50px),
+        transparent calc(100% - 24px),
+        #000 calc(100% - 24px)
+    );
+}
+
+.calendar-day-more {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 24px;
+    padding: 0 8px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ud-blue);
+    cursor: pointer;
+    font: inherit;
+    font-size: calc(13px + var(--font-bump));
+    font-weight: 700;
+    text-align: left;
+}
+
+.calendar-day-more:hover,
+.calendar-day-more:focus-visible {
+    background: var(--soft-blue);
+    color: var(--ud-blue-dark);
+}
+
+/* The whole day, opened from "+N more". */
+.calendar-day-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 18px;
 }
 
 .calendar-date {
@@ -1552,8 +1601,14 @@ button.cancel-plan-option:focus-visible {
 }
 
 @media print {
-    .app-shell:has(.calendar-page) {
+    /* The landscape page is set on the document root: set on an element
+       further in, Chrome starts a new page to switch to it, leaving a blank
+       first page. */
+    :root:has(.calendar-page) {
         page: calendar-schedule;
+    }
+
+    .app-shell:has(.calendar-page) {
         color-scheme: light;
     }
 
@@ -1598,6 +1653,8 @@ button.cancel-plan-option:focus-visible {
     .calendar-view-toggle,
     .calendar-day-filters,
     .calendar-week-strip,
+    .calendar-week-menu,
+    .calendar-semester-dates,
     .calendar-delete,
     .calendar-topic-form,
     .calendar-create-topic,
@@ -1680,6 +1737,15 @@ button.cancel-plan-option:focus-visible {
         min-height: 0;
     }
 
+    /* On paper every item shows, so "+N more" and its fade aren't needed. */
+    .calendar-grid .calendar-day-more {
+        display: none;
+    }
+
+    .calendar-grid.is-month .calendar-day-content.has-more {
+        mask-image: none;
+    }
+
     .calendar-grid .calendar-task {
         overflow: visible;
     }
@@ -1697,6 +1763,30 @@ button.cancel-plan-option:focus-visible {
     .calendar-task,
     .calendar-reflection-questions label {
         break-inside: avoid;
+    }
+
+    /* Pale course-color fills turn into near-identical light grays on a
+       grayscale printer. On paper, blocks are white with black text and a
+       dark outline; the course color stays only as the thick left stripe,
+       so color printing still shows which course is which. */
+    .calendar-page
+        .calendar-grid-wrap
+        .calendar-grid
+        :is(
+            .calendar-meeting,
+            .calendar-activity,
+            .calendar-topic,
+            .calendar-task
+        ) {
+        border: 1px solid #555;
+        border-left: 5px solid var(--course-color, #000);
+        background: #fff;
+        box-shadow: none;
+        color: #000;
+    }
+
+    .calendar-page .calendar-grid .calendar-activity-icon {
+        stroke: #000;
     }
 
     .calendar-reflection fieldset button[aria-pressed="true"] {

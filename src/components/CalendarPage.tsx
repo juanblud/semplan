@@ -3,7 +3,9 @@ import type { CSSProperties, DragEvent, FormEvent } from "react";
 import { AddActivityDialog } from "./AddActivityDialog";
 import type { NewActivity } from "./AddActivityDialog";
 import { AddSemesterButton } from "./AddSemesterButton";
+import { CalendarModal } from "./CalendarModal";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
+import { ClippedDay } from "./ClippedDay";
 import type { CancelPlan } from "./ClassMeetingDialog";
 import { loadCourses } from "./CoursesPage";
 import type { CalendarCourseSelection } from "./CoursesPage";
@@ -236,6 +238,8 @@ export function CalendarPage({
         loadSaved<string>(CANCELLED_KEY, []),
     );
     const [openClass, setOpenClass] = useState<OpenClass | null>(null);
+    // The month-view day whose "+N more" was clicked, shown in full.
+    const [expandedDay, setExpandedDay] = useState<string | null>(null);
     const [lastCancelled, setLastCancelled] = useState<CancelledClass | null>(
         null,
     );
@@ -910,6 +914,7 @@ export function CalendarPage({
                     if (
                         !clicked.closest(".calendar-topic, .calendar-activity")
                     ) {
+                        setExpandedDay(null);
                         setOpenClass({ course: meeting.code, date: key });
                     }
                 }}
@@ -955,7 +960,9 @@ export function CalendarPage({
         );
     }
 
-    function renderDay(date: Date) {
+    // Everything on a day: events, classes with their topics and activities,
+    // other activities, and tasks. Shared by the grid and the day pop-up.
+    function renderDayEntries(date: Date) {
         const key = toDateKey(date);
         const meetings = getMeetings(date);
         const dayItems = courseItems.filter((item) => item.date === key);
@@ -971,6 +978,35 @@ export function CalendarPage({
             )
             .map(renderActivity);
         const dayEvents = eventsByDate.get(key) ?? [];
+        return (
+            <>
+                {dayEvents.map((event) => (
+                    <p key={event.id} className="calendar-event">
+                        {event.summary ?? "Busy"}
+                    </p>
+                ))}
+                {role === "professor" && key === semester.gradingEnd && (
+                    <p className="calendar-event">Grading period ends</p>
+                )}
+                {meetings.map((meeting) =>
+                    renderMeeting(meeting, date, dayItems),
+                )}
+                {looseActivities}
+                {dayTasks.map(renderTask)}
+                {view === "week" &&
+                    meetings.length === 0 &&
+                    looseActivities.length === 0 &&
+                    dayTasks.length === 0 &&
+                    dayEvents.length === 0 && (
+                        <p className="calendar-placeholder">Nothing Planned</p>
+                    )}
+            </>
+        );
+    }
+
+    function renderDay(date: Date) {
+        const key = toDateKey(date);
+        const meetings = getMeetings(date);
         // Outside a meeting, the day takes activities, and topics only when a
         // single course is shown and meets that day.
         const acceptsDrop =
@@ -1014,8 +1050,12 @@ export function CalendarPage({
                     })
                 }
             >
-                <div className="calendar-day-content">
-                    {view === "month" && (
+                {view === "month" ?
+                    // A busy day shows what fits and "+N more" for the rest.
+                    <ClippedDay
+                        label={formatLongDate(date)}
+                        onShowAll={() => setExpandedDay(key)}
+                    >
                         <span className="calendar-date">
                             {/* The 1st names its month, marking where one ends. */}
                             {date.getDate() === 1 ?
@@ -1025,30 +1065,12 @@ export function CalendarPage({
                                 })
                             :   date.getDate()}
                         </span>
-                    )}
-                    {dayEvents.map((event) => (
-                        <p key={event.id} className="calendar-event">
-                            {event.summary ?? "Busy"}
-                        </p>
-                    ))}
-                    {role === "professor" && key === semester.gradingEnd && (
-                        <p className="calendar-event">Grading period ends</p>
-                    )}
-                    {meetings.map((meeting) =>
-                        renderMeeting(meeting, date, dayItems),
-                    )}
-                    {looseActivities}
-                    {dayTasks.map(renderTask)}
-                    {view === "week" &&
-                        meetings.length === 0 &&
-                        looseActivities.length === 0 &&
-                        dayTasks.length === 0 &&
-                        dayEvents.length === 0 && (
-                            <p className="calendar-placeholder">
-                                Nothing Planned
-                            </p>
-                        )}
-                </div>
+                        {renderDayEntries(date)}
+                    </ClippedDay>
+                :   <div className="calendar-day-content">
+                        {renderDayEntries(date)}
+                    </div>
+                }
             </td>
         );
     }
@@ -1572,6 +1594,30 @@ export function CalendarPage({
                     </div>
                 </div>
             }
+
+            {expandedDay && (
+                <CalendarModal
+                    labelledBy="day-detail-title"
+                    onClose={() => setExpandedDay(null)}
+                >
+                    <h2 id="day-detail-title">
+                        {formatLongDate(parseDateKey(expandedDay))}
+                    </h2>
+                    <div className="calendar-day-detail">
+                        {renderDayEntries(parseDateKey(expandedDay))}
+                    </div>
+                    <div className="calendar-dialog-actions">
+                        <button
+                            type="button"
+                            className="is-secondary"
+                            autoFocus
+                            onClick={() => setExpandedDay(null)}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </CalendarModal>
+            )}
 
             {openClass && (
                 <ClassMeetingDialog
