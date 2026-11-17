@@ -57,6 +57,52 @@
     font-size: calc(14px + var(--font-bump));
     color: var(--muted);
 }
+
+/* A course with no details yet shows just the link below, not a gap. */
+.courses-page .course-facts:empty {
+    display: none;
+}
+
+.courses-page .course-facts:empty + .course-add-details {
+    margin-top: 12px;
+}
+
+/* One link for whatever details are blank, instead of "Not added" rows. */
+.courses-page .course-card .course-add-details {
+    align-self: flex-start;
+    margin: 0 0 12px;
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: var(--ud-blue);
+    cursor: pointer;
+    font: inherit;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.courses-page .course-card .course-add-details:hover {
+    color: var(--ud-blue-dark);
+    background: none;
+}
+
+/* How many upcoming classes have something planned. */
+.course-plan-meter {
+    height: 6px;
+    margin-top: 8px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--soft-blue);
+}
+
+.course-plan-meter span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--ud-blue);
+}
 .course-actions {
     display: flex;
     gap: 12px;

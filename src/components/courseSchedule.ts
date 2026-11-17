@@ -1,5 +1,5 @@
 import { calendarCourses, courseKey } from "./calendarStorage";
-import { toDateKey } from "./calendarDates";
+import { addDays, parseDateKey, toDateKey } from "./calendarDates";
 import type { Semester } from "./scheduleTemplate";
 
 // A saved course with its schedule text broken into days and times.
@@ -93,4 +93,47 @@ export function getStartMinutes(meetingTime: string): number {
     return (
         ((Number(hour) % 12) + (period === "PM" ? 12 : 0)) * 60 + Number(minute)
     );
+}
+
+// The course's classes still on from `fromKey` (inclusive), in order, up to
+// `limit` of them. Cancelled classes are skipped.
+export function getClassesFrom(
+    fromKey: string,
+    course: ScheduledCourse,
+    semester: Semester,
+    cancelledClasses: string[],
+    limit = Infinity,
+): string[] {
+    const end = course.endDate || semester.end;
+    const dates: string[] = [];
+    for (
+        let day = parseDateKey(fromKey);
+        dates.length < limit && toDateKey(day) <= end;
+        day = addDays(day, 1)
+    ) {
+        if (isClassMeeting(day, course, semester, cancelledClasses)) {
+            dates.push(toDateKey(day));
+        }
+    }
+    return dates;
+}
+
+// The course's last class still on before `beforeKey`, if any.
+export function getPreviousClass(
+    beforeKey: string,
+    course: ScheduledCourse,
+    semester: Semester,
+    cancelledClasses: string[],
+): string | undefined {
+    const start = course.startDate || semester.start;
+    for (
+        let day = addDays(parseDateKey(beforeKey), -1);
+        toDateKey(day) >= start;
+        day = addDays(day, -1)
+    ) {
+        if (isClassMeeting(day, course, semester, cancelledClasses)) {
+            return toDateKey(day);
+        }
+    }
+    return undefined;
 }

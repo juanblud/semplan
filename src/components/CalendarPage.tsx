@@ -3,7 +3,9 @@ import type { CSSProperties, DragEvent, FormEvent } from "react";
 import { AddActivityDialog } from "./AddActivityDialog";
 import type { NewActivity } from "./AddActivityDialog";
 import { AddSemesterButton } from "./AddSemesterButton";
+import { CalendarModal } from "./CalendarModal";
 import { ClassMeetingDialog } from "./ClassMeetingDialog";
+import { ClippedDay } from "./ClippedDay";
 import type { CancelPlan } from "./ClassMeetingDialog";
 import { loadCourses } from "./CoursesPage";
 import type { CalendarCourseSelection } from "./CoursesPage";
@@ -27,6 +29,7 @@ import {
     WEEKDAYS,
     addDays,
     formatLongDate,
+    formatShortDate,
     formatTime,
     formatWeekRange,
     getMonthGrid,
@@ -40,12 +43,16 @@ import {
 } from "./calendarDates";
 import {
     classKey,
+    getPreviousClass,
     getStartMinutes,
     isClassMeeting,
     toScheduledCourse,
 } from "./courseSchedule";
 import type { ScheduledCourse as Course } from "./courseSchedule";
 import { useSelectedSemester } from "./useSelectedSemester";
+import { createNoteId, loadNotes, saveNotes } from "./planningNotes";
+import type { Note } from "./planningNotes";
+import { resolveTaskDates } from "./taskSchedule";
 
 interface GoogleCalendarEvent {
     id: string;
@@ -138,8 +145,40 @@ function courseColorStyle(color?: string): CSSProperties | undefined {
     return color ? ({ "--course-color": color } as CSSProperties) : undefined;
 }
 
+// "Sep 1 – Dec 14, 2026", with both years when the range crosses one.
+function formatDateRange(startKey: string, endKey: string): string {
+    const start = parseDateKey(startKey);
+    const end = parseDateKey(endKey);
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const startText = start.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        ...(sameYear ? {} : { year: "numeric" }),
+    });
+    const endText = end.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+    return `${startText} – ${endText}`;
+}
+
 // A clipboard marks activities (assignments, tests and the like) so they
 // stand apart from the plain topic chips.
+// Topics get an open book, activities a clipboard, so neither looks like
+// the class meeting they sit in.
+function TopicIcon() {
+    return (
+        <svg
+            className="calendar-topic-icon"
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+        >
+            <path d="M8 4.5C6.5 3.3 4.5 3 2 3v9.5c2.5 0 4.5.3 6 1.5 1.5-1.2 3.5-1.5 6-1.5V3c-2.5 0-4.5.3-6 1.5z M8 4.5V14" />
+        </svg>
+    );
+}
+
 function ActivityIcon() {
     return (
         <svg
@@ -189,8 +228,26 @@ export function CalendarPage({
         .filter((course) => course.semester === semesterName)
         .map(toScheduledCourse);
     const [view, setView] = useState<CalendarView>(
-        initialReflectionOpen ? "week" : "month",
+        initialReflectionOpen || initialCourse?.focusDate ? "week" : "month",
     );
+    // What Home's "Needs attention" asked to point out: a class and/or the
+    // unscheduled topics. Shown briefly, then cleared.
+    const [attention, setAttention] = useState(() =>
+        initialCourse?.focusDate || initialCourse?.highlightTopics ?
+            {
+                course: courseKey(initialCourse.code, initialCourse.section),
+                date: initialCourse.focusDate,
+                topics: Boolean(initialCourse.highlightTopics),
+            }
+        :   null,
+    );
+    useEffect(() => {
+        if (!attention) {
+            return;
+        }
+        const timer = window.setTimeout(() => setAttention(null), 4000);
+        return () => window.clearTimeout(timer);
+    }, [attention]);
     const [dayFilter, setDayFilter] = useState<CalendarDays>("all");
     const [showWeekends, setShowWeekends] = useState(true);
     const visibleDayIndexes = [0, 1, 2, 3, 4, 5, 6].filter((day) => {
@@ -211,13 +268,22 @@ export function CalendarPage({
     // week in the weekly view. It opens on today, or on the semester's start
     // when today is outside the semester.
     const [focusDate, setFocusDate] = useState(() =>
-        selectedWeek === null ? parseDateKey(semester.start) : new Date(),
+        initialCourse?.focusDate ? parseDateKey(initialCourse.focusDate)
+        : selectedWeek === null ? parseDateKey(semester.start)
+        : new Date(),
     );
     const [items, setItems] = useState<CalendarItem[]>(loadCalendarItems);
     const [cancelledClasses, setCancelledClasses] = useState<string[]>(() =>
         loadSaved<string>(CANCELLED_KEY, []),
     );
     const [openClass, setOpenClass] = useState<OpenClass | null>(null);
+    // The last "Fill empty classes", so it can be undone: each topic, the
+    // class it went to, and the course it had before.
+    const [lastFill, setLastFill] = useState<{
+        moves: { id: string; date: string; course: string }[];
+    } | null>(null);
+    // The month-view day whose "+N more" was clicked, shown in full.
+    const [expandedDay, setExpandedDay] = useState<string | null>(null);
     const [lastCancelled, setLastCancelled] = useState<CancelledClass | null>(
         null,
     );
@@ -225,14 +291,44 @@ export function CalendarPage({
     const [dropTarget, setDropTarget] = useState<string | null>(null);
     const [rangeEvents, setRangeEvents] = useState<RangeEvents | null>(null);
     const [addingActivity, setAddingActivity] = useState(false);
-    const [topicDraft, setTopicDraft] = useState<string | null>(null);
+    // Starts open when Home sent an empty class with no topics to fill it.
+    const [topicDraft, setTopicDraft] = useState<string | null>(
+        initialCourse?.createTopic ? "" : null,
+    );
     const [weekLabels, setWeekLabels] = useState<WeekLabel[]>(() =>
         loadSaved<WeekLabel>(WEEK_LABELS_KEY, []),
     );
     const [reflections, setReflections] = useState<WeekReflection[]>(() =>
         loadSaved<WeekReflection>(REFLECTIONS_KEY, []),
     );
+    // Planning Notes, for class notes and "pick up next class" lines.
+    const [notes, setNotes] = useState<Note[]>(loadNotes);
     const addActivityButton = useRef<HTMLButtonElement>(null);
+    const [weekMenuOpen, setWeekMenuOpen] = useState(false);
+    const weekMenu = useRef<HTMLDivElement>(null);
+
+    // The week menu closes on a click outside it or Escape, like a dropdown.
+    useEffect(() => {
+        if (!weekMenuOpen) {
+            return;
+        }
+        function closeOnOutsideClick(event: MouseEvent) {
+            if (!weekMenu.current?.contains(event.target as Node)) {
+                setWeekMenuOpen(false);
+            }
+        }
+        function closeOnEscape(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                setWeekMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", closeOnOutsideClick);
+        document.addEventListener("keydown", closeOnEscape);
+        return () => {
+            document.removeEventListener("mousedown", closeOnOutsideClick);
+            document.removeEventListener("keydown", closeOnEscape);
+        };
+    }, [weekMenuOpen]);
 
     const course = courses.find((option) => option.code === courseCode) ??
         courses.at(0) ?? { code: "", meetingDays: [], meetingTime: "" };
@@ -265,6 +361,10 @@ export function CalendarPage({
     useEffect(() => {
         save(CANCELLED_KEY, cancelledClasses);
     }, [cancelledClasses]);
+
+    useEffect(() => {
+        saveNotes(notes);
+    }, [notes]);
 
     useEffect(() => {
         save(WEEK_LABELS_KEY, weekLabels);
@@ -342,7 +442,13 @@ export function CalendarPage({
         showAll ?
             visibleCourses.map((option) => normalizeCourseCode(option.code))
         :   [normalizeCourseCode(course.code)];
-    const calendarTasks = tasks.filter(
+    // Re-worked out here so a task due at a class moves the moment that
+    // class is cancelled (or the cancel is undone).
+    const calendarTasks = resolveTaskDates(
+        tasks,
+        savedCourses,
+        cancelledClasses,
+    ).filter(
         (task) =>
             task.semester === semesterName &&
             (task.course === "All" ||
@@ -490,6 +596,163 @@ export function CalendarPage({
         return dates;
     }
 
+    // Notes belong to a saved course by id; the calendar knows it by code.
+    function getCourseId(code: string): string | undefined {
+        return savedCourses.find(
+            (option) =>
+                option.semester === semesterName &&
+                courseKey(option.code, option.section) === code,
+        )?.id;
+    }
+
+    function getClassNote({ course: code, date }: OpenClass): Note | undefined {
+        const id = getCourseId(code);
+        return id ?
+                notes.find(
+                    (note) => note.courseId === id && note.classDate === date,
+                )
+            :   undefined;
+    }
+
+    // "Pick up next class" lines meant for this class: left on the previous
+    // class still on, or on classes cancelled since then.
+    function getPickUps({ course: code, date }: OpenClass): Note[] {
+        const id = getCourseId(code);
+        const option = courses.find((entry) => entry.code === code);
+        if (!id || !option) {
+            return [];
+        }
+        const previous =
+            getPreviousClass(date, option, semester, cancelledClasses) ?? "";
+        return notes.filter(
+            (note) =>
+                note.courseId === id &&
+                note.nextClass &&
+                note.classDate &&
+                note.classDate < date &&
+                note.classDate >= previous,
+        );
+    }
+
+    function saveClassNote(meeting: OpenClass, body: string, next: string) {
+        const courseId = getCourseId(meeting.course);
+        const existing = getClassNote(meeting);
+        const text = body.trim();
+        const nextClass = next.trim() || undefined;
+        if (
+            !courseId ||
+            (existing ?
+                existing.body === text && existing.nextClass === nextClass
+            :   !text && !nextClass)
+        ) {
+            return;
+        }
+        const title = `${meeting.course} · ${formatShortDate(meeting.date)}`;
+        const now = Date.now();
+        setNotes((current) => {
+            if (!existing) {
+                return [
+                    {
+                        id: createNoteId(now),
+                        title,
+                        body: text,
+                        courseId,
+                        classDate: meeting.date,
+                        nextClass,
+                        createdAt: now,
+                        updatedAt: now,
+                    },
+                    ...current,
+                ];
+            }
+            // Emptying a note made here removes it; one with its own title
+            // from Planning Notes stays.
+            if (!text && !nextClass && existing.title === title) {
+                return current.filter((note) => note.id !== existing.id);
+            }
+            return current.map((note) =>
+                note.id === existing.id ?
+                    {
+                        ...note,
+                        body: text,
+                        nextClass,
+                        updatedAt: Math.max(now, note.updatedAt + 1),
+                    }
+                :   note,
+            );
+        });
+    }
+
+    // For "Fill empty classes": the course's unscheduled topics paired, in
+    // order, with its upcoming classes (from today) that have no topics yet.
+    function getFillPlan(): { id: string; date: string }[] {
+        if (showAll || unscheduledTopics.length === 0) {
+            return [];
+        }
+        const yesterday = toDateKey(addDays(parseDateKey(todayKey), -1));
+        const emptyClasses = getLaterClasses({
+            course: course.code,
+            date: yesterday,
+        }).filter(
+            (date) =>
+                getClassTopics({ course: course.code, date }).length === 0,
+        );
+        return unscheduledTopics
+            .slice(0, emptyClasses.length)
+            .map((topic, index) => ({
+                id: topic.id,
+                date: emptyClasses[index],
+            }));
+    }
+
+    const fillPlan = getFillPlan();
+
+    function fillEmptyClasses() {
+        const plan = getFillPlan();
+        if (plan.length === 0) {
+            return;
+        }
+        const moves = plan.map(({ id, date }) => ({
+            id,
+            date,
+            // Topics made under All Courses have no course until placed.
+            course: items.find((item) => item.id === id)?.course ?? "",
+        }));
+        setItems((current) =>
+            current.map((item) => {
+                const move = moves.find((entry) => entry.id === item.id);
+                return move ?
+                        {
+                            ...item,
+                            course: course.code,
+                            date: move.date,
+                            activityId: undefined,
+                        }
+                    :   item;
+            }),
+        );
+        setLastCancelled(null);
+        setLastFill({ moves });
+    }
+
+    // Sends filled topics back, unless they've been moved again since.
+    function undoFill() {
+        if (!lastFill) {
+            return;
+        }
+        setItems((current) =>
+            current.map((item) => {
+                const move = lastFill.moves.find(
+                    (entry) => entry.id === item.id,
+                );
+                return move && item.date === move.date && !item.activityId ?
+                        { ...item, course: move.course, date: undefined }
+                    :   item;
+            }),
+        );
+        setLastFill(null);
+    }
+
     // Activities stay put; the class's topics go where the plan says.
     function cancelClass(meeting: OpenClass, plan: CancelPlan) {
         const key = classKey(meeting.course, meeting.date);
@@ -530,6 +793,16 @@ export function CalendarPage({
                 return move ? { ...item, date: move.to } : item;
             }),
         );
+        // Tasks due at this class now fall on the next one.
+        const movedTasks = calendarTasks.filter(
+            (task) =>
+                task.dueClass &&
+                task.dueDate === meeting.date &&
+                task.course === normalizeCourseCode(meeting.course),
+        ).length;
+        if (movedTasks > 0) {
+            outcome += ` ${movedTasks} ${movedTasks === 1 ? "task is" : "tasks are"} now due at the next class.`;
+        }
         setCancelledClasses((current) => [...current, key]);
         setLastCancelled({ ...meeting, key, moves, outcome });
         setOpenClass(null);
@@ -601,6 +874,7 @@ export function CalendarPage({
         setCourseCode(ALL_COURSES);
         setTopicDraft(null);
         setLastCancelled(null);
+        setLastFill(null);
         setOpenClass(null);
         setAddingActivity(false);
         // Looked up fresh because the semester may have only just been added.
@@ -728,7 +1002,10 @@ export function CalendarPage({
                 onDragStart={(event) => startDrag(event, item.id)}
                 onDragEnd={endDrag}
             >
-                {item.title}
+                <span className="calendar-topic-title">
+                    <TopicIcon />
+                    {item.title}
+                </span>
                 {renderDeleteButton(item)}
             </li>
         );
@@ -847,9 +1124,15 @@ export function CalendarPage({
         const activities = meetingItems.filter(
             (item) => item.kind === "activity",
         );
+        const meetingClass = { course: meeting.code, date: key };
+        const pickUps = getPickUps(meetingClass);
+        const hasNote = Boolean(getClassNote(meetingClass)?.body);
         const className = [
             "calendar-meeting",
             dropTarget === target && "is-drop-target",
+            attention?.date === key &&
+                attention.course === meeting.code &&
+                "is-attention",
         ]
             .filter(Boolean)
             .join(" ");
@@ -867,6 +1150,7 @@ export function CalendarPage({
                     if (
                         !clicked.closest(".calendar-topic, .calendar-activity")
                     ) {
+                        setExpandedDay(null);
                         setOpenClass({ course: meeting.code, date: key });
                     }
                 }}
@@ -892,15 +1176,29 @@ export function CalendarPage({
                     className="calendar-meeting-label"
                     aria-label={`${showAll ? `${meeting.code} class` : "Class"} meeting on ${formatLongDate(date)}${
                         meeting.meetingTime ? `, ${meeting.meetingTime}` : ""
-                    }`}
+                    }${hasNote ? ", has class notes" : ""}`}
                 >
                     {showAll ? meeting.code : "Class Meeting"}
+                    {hasNote && (
+                        <span
+                            className="calendar-meeting-note"
+                            aria-hidden="true"
+                            title="Has class notes"
+                        >
+                            ✎
+                        </span>
+                    )}
                     {meeting.meetingTime && (
                         <span className="calendar-meeting-time">
                             {meeting.meetingTime}
                         </span>
                     )}
                 </button>
+                {pickUps.map((note) => (
+                    <p key={note.id} className="calendar-pickup">
+                        <strong>Pick up:</strong> {note.nextClass}
+                    </p>
+                ))}
                 <ul>{topics.map(renderTopic)}</ul>
                 {activities.map(renderActivity)}
                 {view === "week" && meetingItems.length === 0 && (
@@ -912,7 +1210,9 @@ export function CalendarPage({
         );
     }
 
-    function renderDay(date: Date) {
+    // Everything on a day: events, classes with their topics and activities,
+    // other activities, and tasks. Shared by the grid and the day pop-up.
+    function renderDayEntries(date: Date) {
         const key = toDateKey(date);
         const meetings = getMeetings(date);
         const dayItems = courseItems.filter((item) => item.date === key);
@@ -926,6 +1226,35 @@ export function CalendarPage({
             )
             .map(renderActivity);
         const dayEvents = eventsByDate.get(key) ?? [];
+        return (
+            <>
+                {dayEvents.map((event) => (
+                    <p key={event.id} className="calendar-event">
+                        {event.summary ?? "Busy"}
+                    </p>
+                ))}
+                {role === "professor" && key === semester.gradingEnd && (
+                    <p className="calendar-event">Grading period ends</p>
+                )}
+                {meetings.map((meeting) =>
+                    renderMeeting(meeting, date, dayItems),
+                )}
+                {looseActivities}
+                {dayTasks.map(renderTask)}
+                {view === "week" &&
+                    meetings.length === 0 &&
+                    looseActivities.length === 0 &&
+                    dayTasks.length === 0 &&
+                    dayEvents.length === 0 && (
+                        <p className="calendar-placeholder">Nothing Planned</p>
+                    )}
+            </>
+        );
+    }
+
+    function renderDay(date: Date) {
+        const key = toDateKey(date);
+        const meetings = getMeetings(date);
         // Outside a meeting, the day takes activities, and topics only when a
         // single course is shown and meets that day.
         const acceptsDrop =
@@ -969,8 +1298,12 @@ export function CalendarPage({
                     })
                 }
             >
-                <div className="calendar-day-content">
-                    {view === "month" && (
+                {view === "month" ?
+                    // A busy day shows what fits and "+N more" for the rest.
+                    <ClippedDay
+                        label={formatLongDate(date)}
+                        onShowAll={() => setExpandedDay(key)}
+                    >
                         <span className="calendar-date">
                             {/* The 1st names its month, marking where one ends. */}
                             {date.getDate() === 1 ?
@@ -980,30 +1313,12 @@ export function CalendarPage({
                                 })
                             :   date.getDate()}
                         </span>
-                    )}
-                    {dayEvents.map((event) => (
-                        <p key={event.id} className="calendar-event">
-                            {event.summary ?? "Busy"}
-                        </p>
-                    ))}
-                    {role === "professor" && key === semester.gradingEnd && (
-                        <p className="calendar-event">Grading period ends</p>
-                    )}
-                    {meetings.map((meeting) =>
-                        renderMeeting(meeting, date, dayItems),
-                    )}
-                    {looseActivities}
-                    {dayTasks.map(renderTask)}
-                    {view === "week" &&
-                        meetings.length === 0 &&
-                        looseActivities.length === 0 &&
-                        dayTasks.length === 0 &&
-                        dayEvents.length === 0 && (
-                            <p className="calendar-placeholder">
-                                Nothing Planned
-                            </p>
-                        )}
-                </div>
+                        {renderDayEntries(date)}
+                    </ClippedDay>
+                :   <div className="calendar-day-content">
+                        {renderDayEntries(date)}
+                    </div>
+                }
             </td>
         );
     }
@@ -1012,6 +1327,13 @@ export function CalendarPage({
         <section className="calendar-page">
             <header className="page-header">
                 <h1>Calendar</h1>
+                {/* The semester's dates, which drive the week numbers. Shown
+                    as text rather than fields since they aren't editable
+                    here yet. */}
+                <p className="calendar-semester-dates">
+                    {semesterName} runs{" "}
+                    {formatDateRange(semester.start, semester.end)}
+                </p>
                 <div className="calendar-print-only" aria-hidden="true">
                     <p>
                         {semesterName} · {showAll ? "All Courses" : course.code}
@@ -1053,28 +1375,6 @@ export function CalendarPage({
                         onAdd={changeSemester}
                     />
                 </div>
-                {/* PLACEHOLDER: the semester's first and last day drive the
-                    week numbers. These show the built-in dates for now; they
-                    will become editable once they are tied in with the course
-                    input on the Courses page. */}
-                <label>
-                    <span>First day</span>
-                    <input
-                        type="date"
-                        value={semester.start}
-                        disabled
-                        title="Editing semester dates is coming soon"
-                    />
-                </label>
-                <label>
-                    <span>Last day</span>
-                    <input
-                        type="date"
-                        value={semester.end}
-                        disabled
-                        title="Editing semester dates is coming soon"
-                    />
-                </label>
                 <label>
                     <span>Course</span>
                     <select
@@ -1084,6 +1384,7 @@ export function CalendarPage({
                             setCourseCode(event.target.value);
                             setTopicDraft(null);
                             setLastCancelled(null);
+                            setLastFill(null);
                         }}
                     >
                         {!hasCourse && <option value="">No courses</option>}
@@ -1145,6 +1446,71 @@ export function CalendarPage({
                         Monthly
                     </button>
                 </div>
+                {/* Every semester week, to jump straight to one. Labelled
+                    weeks show their label. Tucked behind one button so it
+                    doesn't take a row of its own. */}
+                {hasCourse && (
+                    <div className="calendar-week-menu" ref={weekMenu}>
+                        <button
+                            type="button"
+                            className="calendar-week-menu-toggle"
+                            aria-expanded={weekMenuOpen}
+                            aria-controls="calendar-week-strip"
+                            onClick={() => setWeekMenuOpen((open) => !open)}
+                        >
+                            {highlightedWeek !== null ?
+                                `Week ${highlightedWeek} of ${weekCount}`
+                            :   "Jump to week"}
+                            <span aria-hidden="true"> ▾</span>
+                        </button>
+                        {weekMenuOpen && (
+                            <nav
+                                id="calendar-week-strip"
+                                className="calendar-week-strip"
+                                aria-label="Semester weeks"
+                            >
+                                {Array.from(
+                                    { length: weekCount },
+                                    (_, index) => {
+                                        const week = index + 1;
+                                        const label = getWeekLabel(week);
+                                        const className = [
+                                            label && "has-label",
+                                            week === todayWeek && "is-current",
+                                            !showAll &&
+                                                getReflection(week) &&
+                                                "has-reflection",
+                                        ]
+                                            .filter(Boolean)
+                                            .join(" ");
+                                        return (
+                                            <button
+                                                key={week}
+                                                type="button"
+                                                className={
+                                                    className || undefined
+                                                }
+                                                aria-pressed={
+                                                    week === highlightedWeek
+                                                }
+                                                title={label || `Week ${week}`}
+                                                onClick={() => {
+                                                    selectWeek(week);
+                                                    setWeekMenuOpen(false);
+                                                }}
+                                            >
+                                                <span>{week}</span>
+                                                {label && (
+                                                    <small>{label}</small>
+                                                )}
+                                            </button>
+                                        );
+                                    },
+                                )}
+                            </nav>
+                        )}
+                    </div>
+                )}
                 <div className="calendar-day-filters">
                     <label>
                         Days
@@ -1184,7 +1550,9 @@ export function CalendarPage({
                         <span
                             className="calendar-legend-swatch is-topic"
                             aria-hidden="true"
-                        />
+                        >
+                            <TopicIcon />
+                        </span>
                         Topic
                     </li>
                     <li>
@@ -1246,38 +1614,36 @@ export function CalendarPage({
                 </p>
             )}
 
-            {/* DRAFT idea 3: a numbered strip of every semester week, to jump
-                straight to one. Labelled weeks show their label. */}
-            {hasCourse && (
-                <nav
-                    className="calendar-week-strip"
-                    aria-label="Semester weeks"
-                >
-                    {Array.from({ length: weekCount }, (_, index) => {
-                        const week = index + 1;
-                        const label = getWeekLabel(week);
-                        const className = [
-                            label && "has-label",
-                            week === todayWeek && "is-current",
-                            !showAll && getReflection(week) && "has-reflection",
-                        ]
-                            .filter(Boolean)
-                            .join(" ");
-                        return (
-                            <button
-                                key={week}
-                                type="button"
-                                className={className || undefined}
-                                aria-pressed={week === highlightedWeek}
-                                title={label || `Week ${week}`}
-                                onClick={() => selectWeek(week)}
-                            >
-                                <span>{week}</span>
-                                {label && <small>{label}</small>}
-                            </button>
-                        );
-                    })}
-                </nav>
+            {lastFill && (
+                <div className="calendar-notice" role="status">
+                    <span>
+                        Placed {lastFill.moves.length}{" "}
+                        {lastFill.moves.length === 1 ? "topic" : "topics"} into{" "}
+                        {lastFill.moves.length === 1 ?
+                            formatLongDate(parseDateKey(lastFill.moves[0].date))
+                        :   `classes from ${formatLongDate(
+                                parseDateKey(lastFill.moves[0].date),
+                            )} to ${formatLongDate(
+                                parseDateKey(
+                                    lastFill.moves[lastFill.moves.length - 1]
+                                        .date,
+                                ),
+                            )}`
+                        }
+                        .
+                    </span>
+                    <button type="button" onClick={undoFill}>
+                        Undo
+                    </button>
+                    <button
+                        type="button"
+                        className="calendar-delete"
+                        aria-label="Dismiss"
+                        onClick={() => setLastFill(null)}
+                    >
+                        ×
+                    </button>
+                </div>
             )}
 
             {lastCancelled && (
@@ -1308,7 +1674,7 @@ export function CalendarPage({
                 </p>
             :   <div className="calendar-layout">
                     <aside
-                        className={`calendar-unscheduled${dropTarget === "unscheduled" ? " is-drop-target" : ""}`}
+                        className={`calendar-unscheduled${dropTarget === "unscheduled" ? " is-drop-target" : ""}${attention?.topics ? " is-attention" : ""}`}
                         aria-labelledby="unscheduled-title"
                         // Only topics can be unscheduled; they keep their
                         // course.
@@ -1358,6 +1724,17 @@ export function CalendarPage({
                                 );
                             })
                         :   <ul>{unscheduledTopics.map(renderTopic)}</ul>}
+                        {fillPlan.length > 0 && (
+                            <button
+                                type="button"
+                                className="calendar-fill-topics is-secondary"
+                                title="Place these topics, in order, into the next classes that have none"
+                                onClick={fillEmptyClasses}
+                            >
+                                Fill {fillPlan.length} empty{" "}
+                                {fillPlan.length === 1 ? "class" : "classes"}
+                            </button>
+                        )}
                         {topicDraft === null ?
                             <button
                                 type="button"
@@ -1512,12 +1889,41 @@ export function CalendarPage({
                 </div>
             }
 
+            {expandedDay && (
+                <CalendarModal
+                    labelledBy="day-detail-title"
+                    onClose={() => setExpandedDay(null)}
+                >
+                    <h2 id="day-detail-title">
+                        {formatLongDate(parseDateKey(expandedDay))}
+                    </h2>
+                    <div className="calendar-day-detail">
+                        {renderDayEntries(parseDateKey(expandedDay))}
+                    </div>
+                    <div className="calendar-dialog-actions">
+                        <button
+                            type="button"
+                            className="is-secondary"
+                            autoFocus
+                            onClick={() => setExpandedDay(null)}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </CalendarModal>
+            )}
+
             {openClass && (
                 <ClassMeetingDialog
                     courseCode={openClass.course}
                     date={parseDateKey(openClass.date)}
                     topics={getClassTopics(openClass)}
                     laterClasses={getLaterClasses(openClass)}
+                    note={getClassNote(openClass)}
+                    pickUps={getPickUps(openClass)}
+                    onSaveNote={(body, next) =>
+                        saveClassNote(openClass, body, next)
+                    }
                     onCancelClass={(plan) => cancelClass(openClass, plan)}
                     onClose={() => setOpenClass(null)}
                 />

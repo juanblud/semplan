@@ -149,8 +149,9 @@ describe("adding a semester", () => {
         expect(
             screen.getByRole("heading", { name: "January 2030" }),
         ).toBeInTheDocument();
-        expect(screen.getByLabelText("First day")).toHaveValue("2030-01-07");
-        expect(screen.getByLabelText("Last day")).toHaveValue("2030-01-25");
+        expect(
+            screen.getByText("Winter 2030 runs Jan 7 – Jan 25, 2030"),
+        ).toBeInTheDocument();
 
         view.unmount();
         render(<App />);

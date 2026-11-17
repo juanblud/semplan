@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { CalendarModal } from "./CalendarModal";
-import { formatLongDate, parseDateKey, toDateKey } from "./calendarDates";
+import {
+    formatLongDate,
+    formatShortDate,
+    parseDateKey,
+    toDateKey,
+} from "./calendarDates";
+import type { Note } from "./planningNotes";
 
 // The same day next month, or that month's last day when it is shorter
 // (January 31 gives February 28).
@@ -29,6 +35,13 @@ interface ClassMeetingDialogProps {
     topics: { id: string; title: string }[];
     // The course's remaining classes after this one, as date keys.
     laterClasses: string[];
+    // This class's own notes, if any.
+    note?: Pick<Note, "body" | "nextClass">;
+    // "Pick up next class" lines left for this class by earlier ones.
+    pickUps: Pick<Note, "id" | "classDate" | "nextClass">[];
+    // Called with the notes as typed whenever the dialog closes or the
+    // class is cancelled; unchanged notes are left alone by the caller.
+    onSaveNote: (body: string, nextClass: string) => void;
     onCancelClass: (plan: CancelPlan) => void;
     onClose: () => void;
 }
@@ -38,11 +51,25 @@ export function ClassMeetingDialog({
     date,
     topics,
     laterClasses,
-    onCancelClass,
-    onClose,
+    note,
+    pickUps,
+    onSaveNote,
+    onCancelClass: cancelWithPlan,
+    onClose: close,
 }: ClassMeetingDialogProps) {
     // With topics planned, cancelling first asks what should happen to them.
     const [choosing, setChoosing] = useState(false);
+    const [body, setBody] = useState(note?.body ?? "");
+    const [nextClassNote, setNextClassNote] = useState(note?.nextClass ?? "");
+    // Notes save however the dialog is left, so nothing typed is lost.
+    function onClose() {
+        onSaveNote(body, nextClassNote);
+        close();
+    }
+    function onCancelClass(plan: CancelPlan) {
+        onSaveNote(body, nextClassNote);
+        cancelWithPlan(plan);
+    }
     const nextClass = laterClasses.at(0);
     // Rescheduling reaches at most a month ahead; laterClasses already stops
     // at the course's last class. The next class is always offered, even
@@ -175,6 +202,45 @@ export function ClassMeetingDialog({
             <p className="calendar-dialog-course">
                 {courseCode} · {formatLongDate(date)}
             </p>
+            {pickUps.map((pickUp) => (
+                <div key={pickUp.id} className="class-pickup">
+                    <strong>Pick up from last class</strong>
+                    <p>{pickUp.nextClass}</p>
+                    {pickUp.classDate && (
+                        <small>
+                            From your notes on{" "}
+                            {formatShortDate(pickUp.classDate)}
+                        </small>
+                    )}
+                </div>
+            ))}
+            <div className="class-notes">
+                <label>
+                    Class notes
+                    <textarea
+                        rows={3}
+                        placeholder="What you covered, questions that came up…"
+                        value={body}
+                        onChange={(event) => setBody(event.target.value)}
+                    />
+                </label>
+                <label>
+                    Pick up next class with
+                    <input
+                        type="text"
+                        placeholder="e.g. Start at slide 13"
+                        value={nextClassNote}
+                        onChange={(event) =>
+                            setNextClassNote(event.target.value)
+                        }
+                    />
+                </label>
+                <small>
+                    {nextClass ?
+                        `Shows on ${formatShortDate(nextClass)}, or the class after if that one's cancelled. Notes save to Planning Notes.`
+                    :   "This is the last class. Notes save to Planning Notes."}
+                </small>
+            </div>
             <p className="calendar-dialog-text">
                 {topics.length > 0 &&
                     `This class has ${topics.length} ${topicWord} planned; cancelling asks where they should go. `}

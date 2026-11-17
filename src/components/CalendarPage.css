@@ -29,24 +29,10 @@
     text-transform: uppercase;
 }
 
-.calendar-toolbar input[type="date"] {
-    height: 38px;
-    padding: 1px 8px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--field);
-    color: var(--ink);
-    font: inherit;
-    font-size: calc(16px + var(--font-bump));
-    font-weight: 400;
-    letter-spacing: normal;
-    text-transform: none;
-}
-
-/* Placeholder until semester dates are editable. */
-.calendar-toolbar input[type="date"]:disabled {
-    color: var(--muted);
-    cursor: not-allowed;
+/* The semester's dates, as a line under the page title. */
+.calendar-page .page-header .calendar-semester-dates {
+    margin-top: 6px;
+    font-size: calc(15px + var(--font-bump));
 }
 
 .calendar-toolbar select {
@@ -76,6 +62,17 @@
     font: inherit;
     font-size: calc(16px + var(--font-bump));
     font-weight: 600;
+}
+
+/* "Fill N empty classes" sits between the topics and Create Topic. */
+.calendar-unscheduled button.calendar-fill-topics {
+    width: 100%;
+    height: auto;
+    min-height: 36px;
+    margin: 4px 0 8px;
+    padding: 6px 12px;
+    font-size: calc(15px + var(--font-bump));
+    line-height: 1.2;
 }
 
 /* Grows to fit rather than spilling when the panel is too narrow for one
@@ -282,9 +279,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 4px;
-    padding: 8px 6px 8px 10px;
+    padding: 8px 6px 8px 8px;
     border: 1px solid var(--line);
-    border-left: 4px solid var(--course-color, var(--ud-blue));
     border-radius: 6px;
     background: var(--surface);
     cursor: grab;
@@ -293,7 +289,43 @@
 }
 
 .calendar-topic:hover {
-    border-left-color: var(--ud-gold);
+    border-color: var(--ud-gold);
+}
+
+.calendar-topic-title {
+    min-width: 0;
+}
+
+/* Topics are marked by an open book in their course's color instead of the
+   colored edge class meetings have. */
+.calendar-topic-icon {
+    flex: none;
+    width: 1.1em;
+    height: 1.1em;
+    margin-right: 4px;
+    vertical-align: -0.2em;
+    fill: none;
+    stroke: var(--course-color, var(--ud-blue));
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+}
+
+/* What to pick up with, left by the last class's notes. */
+.calendar-pickup {
+    margin: 4px 0 0;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--ud-gold) 30%, var(--surface));
+    color: var(--ink);
+    font-size: calc(12px + var(--font-bump));
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.calendar-meeting-note {
+    margin-left: 4px;
+    font-weight: 400;
 }
 
 .calendar-topic.is-dragging {
@@ -363,11 +395,83 @@
     padding: 0;
 }
 
+/* A month day doesn't scroll: it shows what fits, and a "+N more" button
+   (ClippedDay) opens the rest. */
 .calendar-grid.is-month .calendar-day-content {
+    position: relative;
     height: 190px;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 6px;
-    scrollbar-gutter: stable;
+}
+
+.calendar-day-items > * + * {
+    margin-top: 6px;
+}
+
+/* Points out what Home's "Needs attention" sent you to fix: a gold ring
+   that pulses a few times, then goes away. */
+.calendar-meeting.is-attention,
+.calendar-unscheduled.is-attention {
+    outline: 3px solid var(--ud-gold);
+    outline-offset: 2px;
+    animation: calendar-attention 900ms ease-in-out 3;
+}
+
+@keyframes calendar-attention {
+    50% {
+        outline-offset: 6px;
+        outline-color: var(--ud-gold-deep);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .calendar-meeting.is-attention,
+    .calendar-unscheduled.is-attention {
+        animation: none;
+    }
+}
+
+/* Items cut off by "+N more" fade out just above it rather than ending in
+   a sliver. The button's own strip stays fully visible. */
+.calendar-grid.is-month .calendar-day-content.has-more {
+    mask-image: linear-gradient(
+        to bottom,
+        #000 calc(100% - 50px),
+        transparent calc(100% - 24px),
+        #000 calc(100% - 24px)
+    );
+}
+
+.calendar-day-more {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 24px;
+    padding: 0 8px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ud-blue);
+    cursor: pointer;
+    font: inherit;
+    font-size: calc(13px + var(--font-bump));
+    font-weight: 700;
+    text-align: left;
+}
+
+.calendar-day-more:hover,
+.calendar-day-more:focus-visible {
+    background: var(--soft-blue);
+    color: var(--ud-blue-dark);
+}
+
+/* The whole day, opened from "+N more". */
+.calendar-day-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 18px;
 }
 
 .calendar-date {
@@ -563,9 +667,15 @@
     width: 26px;
     height: 18px;
     border: 1px solid var(--line);
-    border-left: 4px solid var(--ud-blue);
     border-radius: 4px;
     background: var(--surface);
+}
+
+.calendar-legend-swatch .calendar-topic-icon {
+    --course-color: var(--ud-blue);
+
+    margin: 0;
+    font-size: 12px;
 }
 
 .calendar-legend-swatch.is-activity {
@@ -1019,6 +1129,40 @@
     color: #8e2a1f;
 }
 
+/* The Unscheduled panel's buttons are filled blue; its × buttons stay
+   plain like the rest. */
+.calendar-unscheduled button.calendar-delete {
+    height: 18px;
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: calc(15px + var(--font-bump));
+    font-weight: 400;
+}
+
+.calendar-unscheduled button.calendar-delete:hover {
+    background: #fdecea;
+    color: #8e2a1f;
+}
+
+/* With a mouse, a topic's or activity's × appears only when you point at
+   or tab to it, so the calendar reads as content rather than controls.
+   Touch screens, which can't hover, always show it. */
+@media (hover: hover) {
+    .calendar-topic > .calendar-delete,
+    .calendar-activity > .calendar-delete {
+        opacity: 0;
+        transition: opacity 120ms ease;
+    }
+
+    .calendar-topic:hover > .calendar-delete,
+    .calendar-topic:focus-within > .calendar-delete,
+    .calendar-activity:hover > .calendar-delete,
+    .calendar-activity:focus-within > .calendar-delete {
+        opacity: 1;
+    }
+}
+
 /* Activities keep their × in the top-right corner, clear of the title. */
 .calendar-activity > .calendar-delete {
     position: absolute;
@@ -1360,12 +1504,67 @@ button.cancel-plan-option:focus-visible {
     content: "";
 }
 
+/* "Week 11 of 16 ▾" in the navigation row opens every week as a panel. */
+.calendar-week-menu {
+    position: relative;
+}
+
+.calendar-month-nav .calendar-week-menu-toggle {
+    width: auto;
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: calc(15px + var(--font-bump));
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.calendar-month-nav .calendar-week-menu-toggle[aria-expanded="true"] {
+    background: var(--blue-fill);
+    color: #fff;
+}
+
 .calendar-week-strip {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    left: 0;
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    margin: 0 0 clamp(6px, 1.4vh, 14px);
-    padding-bottom: 4px;
-    overflow-x: auto;
+    width: max-content;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+/* On narrow screens the panel spans the navigation row instead of
+   starting at its button, so it can't run off the right edge. */
+@media (max-width: 700px) {
+    .calendar-month-nav {
+        position: relative;
+    }
+
+    .calendar-week-menu {
+        position: static;
+    }
+
+    .calendar-week-strip {
+        right: 0;
+        width: auto;
+        max-width: none;
+    }
+}
+
+/* Undo the navigation row's square arrow-button size for the week
+   buttons inside the panel. */
+.calendar-month-nav .calendar-week-strip button {
+    width: auto;
+    height: auto;
+    line-height: 1.3;
+    font-size: calc(15px + var(--font-bump));
 }
 
 .calendar-week-strip button {
@@ -1477,8 +1676,14 @@ button.cancel-plan-option:focus-visible {
 }
 
 @media print {
-    .app-shell:has(.calendar-page) {
+    /* The landscape page is set on the document root: set on an element
+       further in, Chrome starts a new page to switch to it, leaving a blank
+       first page. */
+    :root:has(.calendar-page) {
         page: calendar-schedule;
+    }
+
+    .app-shell:has(.calendar-page) {
         color-scheme: light;
     }
 
@@ -1523,6 +1728,8 @@ button.cancel-plan-option:focus-visible {
     .calendar-view-toggle,
     .calendar-day-filters,
     .calendar-week-strip,
+    .calendar-week-menu,
+    .calendar-semester-dates,
     .calendar-delete,
     .calendar-topic-form,
     .calendar-create-topic,
@@ -1605,6 +1812,15 @@ button.cancel-plan-option:focus-visible {
         min-height: 0;
     }
 
+    /* On paper every item shows, so "+N more" and its fade aren't needed. */
+    .calendar-grid .calendar-day-more {
+        display: none;
+    }
+
+    .calendar-grid.is-month .calendar-day-content.has-more {
+        mask-image: none;
+    }
+
     .calendar-grid .calendar-task {
         overflow: visible;
     }
@@ -1622,6 +1838,30 @@ button.cancel-plan-option:focus-visible {
     .calendar-task,
     .calendar-reflection-questions label {
         break-inside: avoid;
+    }
+
+    /* Pale course-color fills turn into near-identical light grays on a
+       grayscale printer. On paper, blocks are white with black text and a
+       dark outline; the course color stays only as the thick left stripe,
+       so color printing still shows which course is which. */
+    .calendar-page
+        .calendar-grid-wrap
+        .calendar-grid
+        :is(
+            .calendar-meeting,
+            .calendar-activity,
+            .calendar-topic,
+            .calendar-task
+        ) {
+        border: 1px solid #555;
+        border-left: 5px solid var(--course-color, #000);
+        background: #fff;
+        box-shadow: none;
+        color: #000;
+    }
+
+    .calendar-page .calendar-grid .calendar-activity-icon {
+        stroke: #000;
     }
 
     .calendar-reflection fieldset button[aria-pressed="true"] {

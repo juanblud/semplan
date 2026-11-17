@@ -130,3 +130,12 @@ export function getSemesterWeekStart(
     const start = parseDateKey(semesterStart);
     return addDays(start, (week - 1) * 7 - start.getDay());
 }
+
+// "2026-10-14" as "Wed, Oct 14".
+export function formatShortDate(key: string): string {
+    return parseDateKey(key).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+    });
+}

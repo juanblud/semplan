@@ -4,78 +4,22 @@ import { loadCourses } from "./CoursesPage";
 import type { Course } from "./CoursesPage";
 import { courseKey } from "./calendarStorage";
 import { MarkdownGuideDialog } from "./MarkdownGuideDialog";
+import { CANCELLED_KEY, loadSaved } from "./calendarStorage";
+import { formatShortDate } from "./calendarDates";
+import {
+    createNoteId,
+    getPickUpDate,
+    loadNotes,
+    saveNotes,
+} from "./planningNotes";
+import type { Note } from "./planningNotes";
 
-interface Note {
-    id: string;
-    title: string;
-    body: string;
-    courseId: string;
-    createdAt: number;
-    updatedAt: number;
-}
-
-type StoredNote = Pick<Note, "id" | "title" | "body"> &
-    Partial<Pick<Note, "courseId" | "createdAt" | "updatedAt">>;
-
-type SortBy = "updatedAt" | "createdAt";
-
-const storageKey = "semplan-planning-notes";
-
-function loadNotes(): Note[] {
-    try {
-        const saved = localStorage.getItem(storageKey);
-        if (!saved) return [];
-
-        const parsed = JSON.parse(saved) as Array<StoredNote | null>;
-        if (!Array.isArray(parsed)) return [];
-
-        return parsed.flatMap((note, index) => {
-            if (
-                note === null ||
-                typeof note !== "object" ||
-                typeof note.id !== "string" ||
-                typeof note.title !== "string" ||
-                typeof note.body !== "string"
-            ) {
-                return [];
-            }
-
-            // Older notes used a creation timestamp at the start of their ID.
-            const idTimestamp = Number(note.id.split("-")[0]);
-            const createdAt =
-                (
-                    typeof note.createdAt === "number" &&
-                    Number.isFinite(note.createdAt)
-                ) ?
-                    note.createdAt
-                : Number.isFinite(idTimestamp) && idTimestamp > 0 ? idTimestamp
-                : Date.now() - index;
-
-            return [
-                {
-                    id: note.id,
-                    title: note.title,
-                    body: note.body,
-                    courseId:
-                        typeof note.courseId === "string" ? note.courseId : "",
-                    createdAt,
-                    updatedAt:
-                        (
-                            typeof note.updatedAt === "number" &&
-                            Number.isFinite(note.updatedAt)
-                        ) ?
-                            note.updatedAt
-                        :   createdAt,
-                },
-            ];
-        });
-    } catch {
-        return [];
-    }
-}
+type SortBy = "updatedAt" | "createdAt" | "classDate";
 
 interface NoteCardProps {
     note: Note;
+    // The class its "next class" line shows on, if it has one.
+    pickUpDate?: string;
     courses: Course[];
     onAssignCourse: (id: string, courseId: string) => void;
     onEdit: (note: Note) => void;
@@ -93,6 +37,7 @@ function CourseOptions({ courses }: { courses: Course[] }) {
 
 function NoteCard({
     note,
+    pickUpDate,
     courses,
     onAssignCourse,
     onEdit,
@@ -145,10 +90,24 @@ function NoteCard({
                     <CourseOptions courses={courses} />
                 </select>
             </label>
+            {note.classDate && (
+                <p className="note-class-date">
+                    Class on {formatShortDate(note.classDate)}
+                </p>
+            )}
             {note.body && (
                 <div className="note-markdown">
                     <ReactMarkdown skipHtml>{note.body}</ReactMarkdown>
                 </div>
+            )}
+            {note.nextClass && (
+                <p className="note-next-class">
+                    <strong>
+                        Next class
+                        {pickUpDate && `, ${formatShortDate(pickUpDate)}`}:
+                    </strong>{" "}
+                    {note.nextClass}
+                </p>
             )}
             <div className="note-card-actions">
                 <button
@@ -184,7 +143,12 @@ export function PlanningNotesPage({
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
     const [courseId, setCourseId] = useState("");
+    const [classDate, setClassDate] = useState("");
+    const [nextClass, setNextClass] = useState("");
     const [courseFilter, setCourseFilter] = useState("all");
+    const [cancelledClasses] = useState(() =>
+        loadSaved<string>(CANCELLED_KEY, []),
+    );
     const [sortBy, setSortBy] = useState<SortBy>("updatedAt");
 
     const courseIds = new Set(courses.map((course) => course.id));
@@ -201,14 +165,22 @@ export function PlanningNotesPage({
         .filter(
             (note) => activeFilter === "all" || note.courseId === activeFilter,
         )
-        .sort((first, second) => second[sortBy] - first[sortBy]);
+        .sort((first, second) =>
+            sortBy === "classDate" ?
+                // Latest class first; notes not about a class go last.
+                (second.classDate ?? "").localeCompare(first.classDate ?? "") ||
+                second.updatedAt - first.updatedAt
+            :   second[sortBy] - first[sortBy],
+        );
+
+    const editorPickUpDate = getPickUpDate(
+        { courseId, classDate },
+        courses,
+        cancelledClasses,
+    );
 
     useEffect(() => {
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(notes));
-        } catch {
-            // Notes remain available for the current session if storage is disabled.
-        }
+        saveNotes(notes);
     }, [notes]);
 
     function closeEditor() {
@@ -217,6 +189,8 @@ export function PlanningNotesPage({
         setTitle("");
         setBody("");
         setCourseId("");
+        setClassDate("");
+        setNextClass("");
     }
 
     function startNewNote() {
@@ -224,6 +198,8 @@ export function PlanningNotesPage({
         setTitle("");
         setBody("");
         setCourseId(activeFilter === "all" ? "" : activeFilter);
+        setClassDate("");
+        setNextClass("");
         setEditorOpen(true);
     }
 
@@ -232,6 +208,8 @@ export function PlanningNotesPage({
         setTitle(note.title);
         setBody(note.body);
         setCourseId(note.courseId);
+        setClassDate(note.classDate ?? "");
+        setNextClass(note.nextClass ?? "");
         setEditorOpen(true);
     }
 
@@ -239,7 +217,11 @@ export function PlanningNotesPage({
         event.preventDefault();
         const nextTitle = title.trim();
         const nextBody = body.trim();
-        if (!nextTitle && !nextBody) return;
+        // A class date only means something with a course, and "next class"
+        // only with a class date.
+        const nextClassDate = (courseId && classDate) || undefined;
+        const pickUp = (nextClassDate && nextClass.trim()) || undefined;
+        if (!nextTitle && !nextBody && !pickUp) return;
 
         if (editingId) {
             setNotes((current) =>
@@ -250,6 +232,8 @@ export function PlanningNotesPage({
                             title: nextTitle,
                             body: nextBody,
                             courseId,
+                            classDate: nextClassDate,
+                            nextClass: pickUp,
                             updatedAt: Math.max(Date.now(), note.updatedAt + 1),
                         }
                     :   note,
@@ -259,10 +243,12 @@ export function PlanningNotesPage({
             const now = Date.now();
             setNotes((current) => [
                 {
-                    id: `${now}-${Math.random().toString(36).slice(2)}`,
+                    id: createNoteId(now),
                     title: nextTitle,
                     body: nextBody,
                     courseId,
+                    classDate: nextClassDate,
+                    nextClass: pickUp,
                     createdAt: now,
                     updatedAt: now,
                 },
@@ -341,6 +327,21 @@ export function PlanningNotesPage({
                         <option value="">Unassigned</option>
                         <CourseOptions courses={courses} />
                     </select>
+                    {courseId && (
+                        <>
+                            <label htmlFor="note-class-date">
+                                Class date (optional)
+                            </label>
+                            <input
+                                id="note-class-date"
+                                type="date"
+                                value={classDate}
+                                onChange={(event) =>
+                                    setClassDate(event.target.value)
+                                }
+                            />
+                        </>
+                    )}
                     <label htmlFor="note-body">Note</label>
                     <textarea
                         id="note-body"
@@ -353,6 +354,28 @@ export function PlanningNotesPage({
                         Markdown supported: **bold**, *italic*, headings, lists,
                         links, quotes, and code.
                     </p>
+                    {courseId && classDate && (
+                        <>
+                            <label htmlFor="note-next-class">
+                                Pick up next class with
+                            </label>
+                            <input
+                                id="note-next-class"
+                                type="text"
+                                placeholder="e.g. Start at slide 13"
+                                value={nextClass}
+                                onChange={(event) =>
+                                    setNextClass(event.target.value)
+                                }
+                            />
+                            <p className="note-markdown-hint">
+                                {editorPickUpDate ?
+                                    `Shows on the ${formatShortDate(editorPickUpDate)} class in the Calendar, and moves along if that class is cancelled.`
+                                :   "Shows on the course's next class in the Calendar."
+                                }
+                            </p>
+                        </>
+                    )}
                     <div className="note-editor-actions">
                         <button type="button" onClick={closeEditor}>
                             Cancel
@@ -360,7 +383,11 @@ export function PlanningNotesPage({
                         <button
                             className="save-note-button"
                             type="submit"
-                            disabled={!title.trim() && !body.trim()}
+                            disabled={
+                                !title.trim() &&
+                                !body.trim() &&
+                                !(courseId && classDate && nextClass.trim())
+                            }
                         >
                             {editingId ? "Save changes" : "Save note"}
                         </button>
@@ -397,6 +424,7 @@ export function PlanningNotesPage({
                         >
                             <option value="updatedAt">Recently edited</option>
                             <option value="createdAt">Recently added</option>
+                            <option value="classDate">Class date</option>
                         </select>
                     </div>
                 </div>
@@ -420,6 +448,15 @@ export function PlanningNotesPage({
                         <NoteCard
                             key={note.id}
                             note={note}
+                            pickUpDate={
+                                note.nextClass ?
+                                    getPickUpDate(
+                                        note,
+                                        courses,
+                                        cancelledClasses,
+                                    )
+                                :   undefined
+                            }
                             courses={courses}
                             onAssignCourse={assignCourse}
                             onEdit={editNote}
