@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { Task } from "../tasks";
 import { AddSemesterButton } from "./AddSemesterButton";
 import type { Course } from "./CoursesPage";
@@ -23,6 +23,22 @@ const COMPLETED_ACTIVITIES_KEY = "semplan:completed-activities";
 
 // How soon before grades are due Home starts mentioning it.
 const GRADING_NOTICE_DAYS = 30;
+
+function formatTodoDate(date: string | undefined) {
+    if (!date) return "—";
+    return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+    });
+}
+
+function formatTodoDay(date: string) {
+    return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+    });
+}
 
 interface HomePageProps {
     courses: Course[];
@@ -76,6 +92,10 @@ export function HomePage({
     const [semester, setSemester] = useSelectedSemester(semesters);
     const [now, setNow] = useState(() => new Date());
     const [showAllAttention, setShowAllAttention] = useState(false);
+    const [expandedCompletedDays, setExpandedCompletedDays] = useState<
+        string[]
+    >([]);
+    const [showOlderTasks, setShowOlderTasks] = useState(false);
     const [activities] = useState(loadCalendarItems);
     const [cancelledClasses] = useState(() =>
         loadSaved<string>(CANCELLED_KEY, []),
@@ -102,29 +122,42 @@ export function HomePage({
         );
         return () => window.clearTimeout(timer);
     }, [now]);
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const todayTasks = tasks.filter(
+    const today = toDateKey(now);
+    const cutoffDate = new Date(now);
+    cutoffDate.setDate(cutoffDate.getDate() + 14);
+    const cutoff = toDateKey(cutoffDate);
+    const upcomingTasks = tasks.filter(
         (task) =>
             task.semester === semester &&
-            task.startDate <= today &&
-            today <= task.finishDate,
+            task.dueDate >= today &&
+            task.dueDate <= cutoff,
     );
-    const todayActivities = activities.filter(
+    const olderTaskItems = tasks
+        .filter((task) => task.semester === semester && task.dueDate < today)
+        .map((task) => ({
+            ...task,
+            id: "older-task-" + task.id,
+            onToggle: () => onToggleTask(task.id),
+        }));
+    const upcomingActivities = activities.filter(
         (activity) =>
             activity.kind === "activity" &&
             activity.semester === semester &&
-            activity.date === today,
+            activity.date !== undefined &&
+            activity.date >= today &&
+            activity.date <= cutoff,
     );
     const todoItems = [
-        ...todayTasks.map((task) => ({
+        ...upcomingTasks.map((task) => ({
             ...task,
             id: `task-${task.id}`,
             onToggle: () => onToggleTask(task.id),
         })),
-        ...todayActivities.map((activity) => ({
+        ...upcomingActivities.map((activity) => ({
             id: `activity-${activity.id}`,
             course: activity.course,
             title: activity.title,
+            dueDate: activity.date,
             completed: completedActivities.includes(activity.id),
             onToggle: () =>
                 setCompletedActivities((current) =>
@@ -133,7 +166,22 @@ export function HomePage({
                     :   [...current, activity.id],
                 ),
         })),
+    ].sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+    const activeTodoItems = todoItems.filter((item) => !item.completed);
+    const completedTodoItems = todoItems.filter((item) => item.completed);
+    const todoDays = [
+        ...new Set(
+            todoItems
+                .map((item) => item.dueDate)
+                .filter((date): date is string => date !== undefined),
+        ),
     ];
+    const toggleCompletedDay = (date: string) =>
+        setExpandedCompletedDays((current) =>
+            current.includes(date) ?
+                current.filter((item) => item !== date)
+            :   [...current, date],
+        );
 
     const selectedSemester = calendarSemesters.find(
         (term) => term.name === semester,
@@ -438,6 +486,10 @@ export function HomePage({
                             <time dateTime={today}>
                                 {now.toLocaleDateString("en-US")}
                             </time>
+                            {" – "}
+                            <time dateTime={cutoff}>
+                                {cutoffDate.toLocaleDateString("en-US")}
+                            </time>
                         </h2>
                         <div className="todo-table-wrap">
                             <table className="todo-table">
@@ -445,31 +497,378 @@ export function HomePage({
                                     <tr>
                                         <th scope="col">Course</th>
                                         <th scope="col">Task</th>
+                                        <th scope="col">Due</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {todoItems.map((task) => (
-                                        <tr key={task.id}>
-                                            <th scope="row">{task.course}</th>
-                                            <td>
-                                                <label className="todo-item">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={task.completed}
-                                                        onChange={task.onToggle}
-                                                    />
-                                                    <span>{task.title}</span>
-                                                </label>
-                                            </td>
-                                        </tr>
+                                    {todoDays.map((date) => (
+                                        <Fragment key={date}>
+                                            <tr
+                                                className="todo-day-heading"
+                                                key={`${date}-heading`}
+                                            >
+                                                <th
+                                                    colSpan={3}
+                                                    scope="colgroup"
+                                                >
+                                                    <time dateTime={date}>
+                                                        {date === today ?
+                                                            "Today · "
+                                                        :   ""}
+                                                        {formatTodoDay(date)}
+                                                    </time>
+                                                </th>
+                                            </tr>
+                                            {activeTodoItems
+                                                .filter(
+                                                    (task) =>
+                                                        task.dueDate === date,
+                                                )
+                                                .map((task) => (
+                                                    <tr key={task.id}>
+                                                        <th scope="row">
+                                                            {task.course}
+                                                        </th>
+                                                        <td>
+                                                            <label className="todo-item">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={
+                                                                        task.completed
+                                                                    }
+                                                                    onChange={
+                                                                        task.onToggle
+                                                                    }
+                                                                />
+                                                                <span>
+                                                                    {task.title}
+                                                                </span>
+                                                            </label>
+                                                        </td>
+                                                        <td className="todo-date-cell">
+                                                            <time
+                                                                dateTime={
+                                                                    task.dueDate
+                                                                }
+                                                            >
+                                                                {formatTodoDate(
+                                                                    task.dueDate,
+                                                                )}
+                                                            </time>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            {(() => {
+                                                const dayCompletedItems =
+                                                    completedTodoItems.filter(
+                                                        (task) =>
+                                                            task.dueDate ===
+                                                            date,
+                                                    );
+                                                const completedExpanded =
+                                                    expandedCompletedDays.includes(
+                                                        date,
+                                                    );
+
+                                                return (
+                                                        dayCompletedItems.length >
+                                                            0
+                                                    ) ?
+                                                        <>
+                                                            <tr className="todo-completed-summary">
+                                                                <td colSpan={3}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="todo-completed-toggle"
+                                                                        aria-expanded={
+                                                                            completedExpanded
+                                                                        }
+                                                                        onClick={() =>
+                                                                            toggleCompletedDay(
+                                                                                date,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <span
+                                                                            className="todo-completed-chevron"
+                                                                            aria-hidden="true"
+                                                                        >
+                                                                            {(
+                                                                                completedExpanded
+                                                                            ) ?
+                                                                                "▾"
+                                                                            :   "▸"
+                                                                            }
+                                                                        </span>
+                                                                        {(
+                                                                            completedExpanded
+                                                                        ) ?
+                                                                            "Hide"
+                                                                        :   "Show"
+                                                                        }{" "}
+                                                                        {
+                                                                            dayCompletedItems.length
+                                                                        }{" "}
+                                                                        completed{" "}
+                                                                        {(
+                                                                            dayCompletedItems.length ===
+                                                                            1
+                                                                        ) ?
+                                                                            "item"
+                                                                        :   "items"
+                                                                        }
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                            {completedExpanded &&
+                                                                dayCompletedItems.map(
+                                                                    (task) => (
+                                                                        <tr
+                                                                            key={
+                                                                                task.id
+                                                                            }
+                                                                            className="todo-completed-row"
+                                                                        >
+                                                                            <th scope="row">
+                                                                                {
+                                                                                    task.course
+                                                                                }
+                                                                            </th>
+                                                                            <td>
+                                                                                <label className="todo-item">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={
+                                                                                            task.completed
+                                                                                        }
+                                                                                        onChange={
+                                                                                            task.onToggle
+                                                                                        }
+                                                                                    />
+                                                                                    <span>
+                                                                                        {
+                                                                                            task.title
+                                                                                        }
+                                                                                    </span>
+                                                                                </label>
+                                                                            </td>
+                                                                            <td className="todo-date-cell">
+                                                                                <time
+                                                                                    dateTime={
+                                                                                        task.dueDate
+                                                                                    }
+                                                                                >
+                                                                                    {formatTodoDate(
+                                                                                        task.dueDate,
+                                                                                    )}
+                                                                                </time>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ),
+                                                                )}
+                                                        </>
+                                                    :   null;
+                                            })()}
+                                        </Fragment>
                                     ))}
-                                    {todoItems.length === 0 && (
-                                        <tr>
-                                            <td colSpan={2}>
-                                                No tasks scheduled for today.
+                                    {/* Legacy global completed-items rendering is kept disabled; completed items render beneath their own day. */}
+                                    {/*
+                                    {showCompletedTodo &&
+                                        completedTodoItems.length > 0 && (
+                                            <tr className="todo-completed-summary">
+                                                <td colSpan={3}>
+                                                    <button
+                                                        type="button"
+                                                        className="todo-completed-toggle"
+                                                        aria-expanded={
+                                                            showCompletedTodo
+                                                        }
+                                                        onClick={() =>
+                                                            setShowCompletedTodo(
+                                                                (current) =>
+                                                                    !current,
+                                                            )
+                                                        }
+                                                    >
+                                                        <span
+                                                            className="todo-completed-chevron"
+                                                            aria-hidden="true"
+                                                        >
+                                                            {showCompletedTodo ?
+                                                                "▾"
+                                                            :   "▸"}
+                                                        </span>
+                                                        {showCompletedTodo ?
+                                                            "Hide"
+                                                        :   "Show"}{" "}
+                                                        {
+                                                            completedTodoItems.length
+                                                        }{" "}
+                                                        completed{" "}
+                                                        {(
+                                                            completedTodoItems.length ===
+                                                            1
+                                                        ) ?
+                                                            "item"
+                                                        :   "items"}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    {showCompletedTodo &&
+                                        completedTodoDays.map((date) => (
+                                            <Fragment key={`completed-${date}`}>
+                                                <tr className="todo-day-heading todo-completed-day-heading">
+                                                    <th
+                                                        colSpan={3}
+                                                        scope="colgroup"
+                                                    >
+                                                        <time dateTime={date}>
+                                                            {date === today ?
+                                                                "Today · "
+                                                            :   ""}
+                                                            {formatTodoDay(
+                                                                date,
+                                                            )}
+                                                        </time>
+                                                    </th>
+                                                </tr>
+                                                {completedTodoItems
+                                                    .filter(
+                                                        (task) =>
+                                                            task.dueDate ===
+                                                            date,
+                                                    )
+                                                    .map((task) => (
+                                                        <tr
+                                                            key={task.id}
+                                                            className="todo-completed-row"
+                                                        >
+                                                            <th scope="row">
+                                                                {task.course}
+                                                            </th>
+                                                            <td>
+                                                                <label className="todo-item">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={
+                                                                            task.completed
+                                                                        }
+                                                                        onChange={
+                                                                            task.onToggle
+                                                                        }
+                                                                    />
+                                                                    <span>
+                                                                        {
+                                                                            task.title
+                                                                        }
+                                                                    </span>
+                                                                </label>
+                                                            </td>
+                                                            <td className="todo-date-cell">
+                                                                <time
+                                                                    dateTime={
+                                                                        task.dueDate
+                                                                    }
+                                                                >
+                                                                    {formatTodoDate(
+                                                                        task.dueDate,
+                                                                    )}
+                                                                </time>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                            </Fragment>
+                                        ))}
+                                    */}
+                                    {olderTaskItems.length > 0 && (
+                                        <tr className="todo-completed-summary todo-older-summary">
+                                            <td colSpan={3}>
+                                                <button
+                                                    type="button"
+                                                    className="todo-completed-toggle"
+                                                    aria-expanded={
+                                                        showOlderTasks
+                                                    }
+                                                    onClick={() =>
+                                                        setShowOlderTasks(
+                                                            (current) =>
+                                                                !current,
+                                                        )
+                                                    }
+                                                >
+                                                    <span
+                                                        className="todo-completed-chevron"
+                                                        aria-hidden="true"
+                                                    >
+                                                        {showOlderTasks ?
+                                                            "▾"
+                                                        :   "▸"}
+                                                    </span>
+                                                    {showOlderTasks ?
+                                                        "Hide"
+                                                    :   "Show"}{" "}
+                                                    {olderTaskItems.length}{" "}
+                                                    older{" "}
+                                                    {(
+                                                        olderTaskItems.length ===
+                                                        1
+                                                    ) ?
+                                                        "task"
+                                                    :   "tasks"}
+                                                </button>
                                             </td>
                                         </tr>
                                     )}
+                                    {showOlderTasks &&
+                                        olderTaskItems.map((task) => (
+                                            <tr
+                                                key={task.id}
+                                                className={
+                                                    task.completed ?
+                                                        "todo-completed-row"
+                                                    :   "todo-older-row"
+                                                }
+                                            >
+                                                <th scope="row">
+                                                    {task.course}
+                                                </th>
+                                                <td>
+                                                    <label className="todo-item">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={
+                                                                task.completed
+                                                            }
+                                                            onChange={
+                                                                task.onToggle
+                                                            }
+                                                        />
+                                                        <span>
+                                                            {task.title}
+                                                        </span>
+                                                    </label>
+                                                </td>
+                                                <td className="todo-date-cell">
+                                                    <time
+                                                        dateTime={task.dueDate}
+                                                    >
+                                                        {formatTodoDate(
+                                                            task.dueDate,
+                                                        )}
+                                                    </time>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    {todoItems.length === 0 &&
+                                        olderTaskItems.length === 0 && (
+                                            <tr>
+                                                <td colSpan={3}>
+                                                    No tasks or reminders due in
+                                                    this window.
+                                                </td>
+                                            </tr>
+                                        )}
                                 </tbody>
                             </table>
                         </div>

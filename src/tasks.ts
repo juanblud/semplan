@@ -3,8 +3,7 @@ export interface Task {
     title: string;
     course: string;
     semester: string;
-    startDate: string;
-    finishDate: string;
+    dueDate: string;
     completed: boolean;
     // A task due at a class rather than on a date: the class it was set for.
     // If that class is cancelled, the task is due at the next class instead.
@@ -22,29 +21,44 @@ function withoutMovedFrom(task: Task): Task {
     return saved;
 }
 
-function isTask(value: Partial<Task> | null): value is Task {
-    return (
-        value !== null &&
-        typeof value === "object" &&
-        typeof value.id === "number" &&
-        typeof value.title === "string" &&
-        typeof value.course === "string" &&
-        typeof value.semester === "string" &&
-        typeof value.startDate === "string" &&
-        typeof value.finishDate === "string" &&
-        typeof value.completed === "boolean" &&
-        (value.dueClass === undefined || typeof value.dueClass === "string")
-    );
+// Tasks saved before due dates replaced start and finish dates still load,
+// due on their old finish date.
+type StoredTask = Partial<Task> & { finishDate?: string };
+
+function toTask(value: StoredTask | null): Task[] {
+    if (value === null || typeof value !== "object") return [];
+    const dueDate = value.dueDate ?? value.finishDate;
+    if (
+        typeof value.id !== "number" ||
+        typeof value.title !== "string" ||
+        typeof value.course !== "string" ||
+        typeof value.semester !== "string" ||
+        typeof dueDate !== "string" ||
+        typeof value.completed !== "boolean"
+    ) {
+        return [];
+    }
+    return [
+        {
+            id: value.id,
+            title: value.title,
+            course: value.course,
+            semester: value.semester,
+            dueDate,
+            completed: value.completed,
+            ...(typeof value.dueClass === "string" && {
+                dueClass: value.dueClass,
+            }),
+        },
+    ];
 }
 
 export function loadTasks(): Task[] {
     try {
         const saved = JSON.parse(
             localStorage.getItem(TASKS_KEY) ?? "[]",
-        ) as Array<Partial<Task> | null>;
-        return Array.isArray(saved) ?
-                saved.filter(isTask).map(withoutMovedFrom)
-            :   [];
+        ) as Array<StoredTask | null>;
+        return Array.isArray(saved) ? saved.flatMap(toTask) : [];
     } catch {
         return [];
     }

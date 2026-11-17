@@ -602,9 +602,7 @@ export function CoursesPage({
                                 normalize(task.course) ===
                                     normalize(course.code),
                         )
-                        .sort((a, b) =>
-                            a.finishDate.localeCompare(b.finishDate),
-                        );
+                        .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
                     const term = calendarSemesters.find(
                         (option) => option.name === course.semester,
                     );
@@ -713,7 +711,7 @@ export function CoursesPage({
                                     </strong>
                                     <p>
                                         {pending[0] ?
-                                            `${pending[0].title} - Due ${new Date(`${pending[0].finishDate}T00:00:00`).toLocaleDateString("en-US")}`
+                                            `${pending[0].title} - Due ${new Date(`${pending[0].dueDate}T00:00:00`).toLocaleDateString("en-US")}`
                                         :   "No pending tasks for this course."}
                                     </p>
                                 </div>

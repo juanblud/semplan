@@ -6,8 +6,7 @@ export const initialTasks: Task[] = [
         title: "Task 4 HW",
         course: "CISC275",
         semester: "Fall 2026",
-        startDate: "2026-11-01",
-        finishDate: "2026-11-07",
+        dueDate: "2026-11-07",
         completed: false,
     },
 ];

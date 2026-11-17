@@ -51,7 +51,7 @@ export function resolveTaskDates(
             1,
         );
         return due && due !== dueClass ?
-                { ...task, finishDate: due, movedFrom: dueClass }
-            :   { ...task, finishDate: dueClass, movedFrom: undefined };
+                { ...task, dueDate: due, movedFrom: dueClass }
+            :   { ...task, dueDate: dueClass, movedFrom: undefined };
     });
 }

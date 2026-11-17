@@ -32,26 +32,22 @@ test("edits scheduled task details and preserves completion", async () => {
         "Prepare slides",
     );
     await user.selectOptions(screen.getByLabelText("Class"), "CISC320");
-    await user.clear(screen.getByLabelText("Start date"));
-    await user.type(screen.getByLabelText("Start date"), "2026-11-01");
-    await user.clear(screen.getByLabelText("Finish date"));
-    await user.type(screen.getByLabelText("Finish date"), "2026-11-03");
+    await user.clear(screen.getByLabelText("Due date"));
+    await user.type(screen.getByLabelText("Due date"), "2026-11-03");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     const checkbox = screen.getByRole("checkbox", { name: "Prepare slides" });
     expect(checkbox).toBeChecked();
     const row = checkbox.closest("li")!;
     expect(within(row).getByText("CISC320")).toBeInTheDocument();
-    expect(within(row).getByText("11/01/2026")).toBeInTheDocument();
     expect(within(row).getByText("11/03/2026")).toBeInTheDocument();
     await user.click(
         screen.getByRole("button", { name: "Edit Prepare slides" }),
     );
-    expect(screen.getByLabelText("Start date")).toHaveValue("2026-11-01");
-    expect(screen.getByLabelText("Finish date")).toHaveValue("2026-11-03");
+    expect(screen.getByLabelText("Due date")).toHaveValue("2026-11-03");
     expect(screen.queryByText(original)).not.toBeInTheDocument();
 });
 
-test("requires both dates, rejects reversed ranges, and allows same-day tasks", async () => {
+test("requires a due date and allows same-day tasks", async () => {
     const user = userEvent.setup();
     render(<TaskViewHarness />);
     await user.type(screen.getByLabelText("Task"), "Read chapter 1");
@@ -59,26 +55,13 @@ test("requires both dates, rejects reversed ranges, and allows same-day tasks", 
     expect(
         screen.queryByRole("checkbox", { name: "Read chapter 1" }),
     ).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText("Start date"), "2026-11-03");
-    await user.click(screen.getByRole("button", { name: "Add task" }));
-    expect(
-        screen.queryByRole("checkbox", { name: "Read chapter 1" }),
-    ).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText("Finish date"), "2026-11-02");
-    expect(screen.getByLabelText("Finish date")).toBeInvalid();
-    await user.click(screen.getByRole("button", { name: "Add task" }));
-    expect(
-        screen.queryByRole("checkbox", { name: "Read chapter 1" }),
-    ).not.toBeInTheDocument();
-    await user.clear(screen.getByLabelText("Finish date"));
-    await user.type(screen.getByLabelText("Finish date"), "2026-11-03");
+    await user.type(screen.getByLabelText("Due date"), "2026-11-03");
     await user.click(screen.getByRole("button", { name: "Add task" }));
     const row = screen
         .getByRole("checkbox", { name: "Read chapter 1" })
         .closest("li")!;
-    expect(within(row).getAllByText("11/03/2026")).toHaveLength(2);
-    expect(screen.getByLabelText("Start date")).toHaveValue("");
-    expect(screen.getByLabelText("Finish date")).toHaveValue("");
+    expect(within(row).getByText("11/03/2026")).toBeInTheDocument();
+    expect(screen.getByLabelText("Due date")).toHaveValue("");
 });
 
 test("cancels edits and deletes the task being edited", async () => {
@@ -149,8 +132,7 @@ test("keeps tasks for identical courses separate by semester", async () => {
     ).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Task"), "Task 4 HW");
     await user.selectOptions(screen.getByLabelText("Class"), "CISC275");
-    await user.type(screen.getByLabelText("Start date"), "2027-03-01");
-    await user.type(screen.getByLabelText("Finish date"), "2027-03-07");
+    await user.type(screen.getByLabelText("Due date"), "2027-03-07");
     await user.click(screen.getByRole("button", { name: "Add task" }));
     await user.click(screen.getByRole("checkbox", { name: "Task 4 HW" }));
     const springRow = screen
@@ -181,8 +163,7 @@ test("keeps tasks for identical courses separate by semester", async () => {
     );
     await user.selectOptions(screen.getByLabelText("Semester"), "Fall 2026");
     expect(screen.getByLabelText("Task")).toHaveValue("Spring homework");
-    expect(screen.getByLabelText("Start date")).toHaveValue("2027-03-01");
-    expect(screen.getByLabelText("Finish date")).toHaveValue("2027-03-07");
+    expect(screen.getByLabelText("Due date")).toHaveValue("2027-03-07");
     expect(screen.getByLabelText("Class")).toHaveValue("All");
     expect(
         screen.getByRole("button", { name: "Save changes" }),

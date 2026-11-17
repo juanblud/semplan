@@ -45,8 +45,7 @@ const dueFriday: Task = {
     title: "Read chapter 4",
     course: "CISC275",
     semester: "Fall 2026",
-    startDate: "2026-10-14",
-    finishDate: "2026-10-16",
+    dueDate: "2026-10-16",
     completed: false,
     dueClass: "2026-10-16",
 };
@@ -98,7 +97,7 @@ describe("Tasks", () => {
         expect(
             resolveTaskDates([dueFriday], [cisc275], ["CISC 275|2026-10-16"]),
         ).toEqual([
-            { ...dueFriday, finishDate: "2026-10-19", movedFrom: "2026-10-16" },
+            { ...dueFriday, dueDate: "2026-10-19", movedFrom: "2026-10-16" },
         ]);
     });
 
@@ -113,8 +112,7 @@ describe("Tasks", () => {
                     expect(next).toEqual([
                         expect.objectContaining({
                             title: "Read chapter 4",
-                            startDate: "2026-10-14",
-                            finishDate: "2026-10-16",
+                            dueDate: "2026-10-16",
                             dueClass: "2026-10-16",
                         }),
                     ]);
@@ -136,7 +134,7 @@ describe("Tasks", () => {
         ).toBeInTheDocument();
         fireEvent.change(due, { target: { value: "2026-10-16" } });
         // The class is the due date, so no finish date to pick.
-        expect(screen.queryByLabelText("Finish date")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("Due date")).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole("button", { name: "Add task" }));
         expect.assertions(3);
     });
@@ -209,4 +207,31 @@ describe("Class notes", () => {
             "Next class, Fri, Oct 16: Start at slide 13",
         );
     });
+});
+
+test("tasks saved before due dates load with their finish date as due", () => {
+    localStorage.setItem(
+        "semplan:tasks",
+        JSON.stringify([
+            {
+                id: 7,
+                title: "Old task",
+                course: "CISC275",
+                semester: "Fall 2026",
+                startDate: "2026-10-01",
+                finishDate: "2026-10-09",
+                completed: false,
+            },
+        ]),
+    );
+    expect(loadTasks()).toEqual([
+        {
+            id: 7,
+            title: "Old task",
+            course: "CISC275",
+            semester: "Fall 2026",
+            dueDate: "2026-10-09",
+            completed: false,
+        },
+    ]);
 });

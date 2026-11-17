@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import type { Course } from "./CoursesPage";
 import {
     formatWeekRange,
@@ -84,7 +85,18 @@ export function HomeWeekView({ courses, semester, now }: HomeWeekViewProps) {
                                 </h3>
                                 <ul>
                                     {meetings.map((meeting) => (
-                                        <li key={meeting.code}>
+                                        <li
+                                            key={meeting.code}
+                                            className="home-week-meeting"
+                                            style={
+                                                meeting.color ?
+                                                    ({
+                                                        "--course-color":
+                                                            meeting.color,
+                                                    } as CSSProperties)
+                                                :   undefined
+                                            }
+                                        >
                                             <strong>{meeting.code}</strong>
                                             {meeting.meetingTime && (
                                                 <span>

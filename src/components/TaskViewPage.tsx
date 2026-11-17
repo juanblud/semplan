@@ -33,9 +33,9 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
     const [semester, setSemester] = useSelectedSemester(semesterNames);
     const [title, setTitle] = useState("");
     const [course, setCourse] = useState("All");
-    const [startDate, setStartDate] = useState("");
-    const [finishDate, setFinishDate] = useState("");
-    // The class a task is due at, or "" for a finish date instead.
+    const [courseFilter, setCourseFilter] = useState("All");
+    const [dueDate, setDueDate] = useState("");
+    // The class a task is due at, or "" for a due date instead.
     const [dueClass, setDueClass] = useState("");
     const [editingId, setEditingId] = useState<number | null>(null);
     const titleInput = useRef<HTMLInputElement>(null);
@@ -47,6 +47,7 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
         setSemester(name);
         setCourse("All");
         setDueClass("");
+        setCourseFilter("All");
     }
     // The chosen course's next few classes, for "Due". A task being edited
     // keeps its own class as a choice even once that class has passed.
@@ -73,6 +74,11 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
         (item) => item.semester === semester,
     );
     const semesterTasks = tasks.filter((task) => task.semester === semester);
+    const filteredSemesterTasks = semesterTasks.filter(
+        (task) =>
+            courseFilter === "All" ||
+            normalizeCourseCode(task.course) === courseFilter,
+    );
     const courseOptions = [
         ...new Set([
             ...semesterCourses.map((item) => normalizeCourseCode(item.code)),
@@ -83,8 +89,7 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
         setEditingId(null);
         setTitle("");
         setCourse("All");
-        setStartDate("");
-        setFinishDate("");
+        setDueDate("");
         setDueClass("");
     }
 
@@ -94,24 +99,21 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
         setCourse(
             task.course === "All" ? "All" : normalizeCourseCode(task.course),
         );
-        setStartDate(task.startDate);
-        setFinishDate(task.finishDate);
+        setDueDate(task.dueDate);
         setDueClass(task.dueClass ?? "");
         titleInput.current?.focus();
     }
 
     function saveTask(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        // A task due at a class can skip its start date; it starts today.
-        const start = startDate || (dueClass ? todayKey : "");
-        const finish = dueClass || finishDate;
-        if (!title.trim() || !start || !finish || finish < start) return;
+        // A task due at a class is due on that class's date.
+        const due = dueClass || dueDate;
+        if (!title.trim() || !due) return;
         const details = {
             title: title.trim(),
             course,
             semester,
-            startDate: start,
-            finishDate: finish,
+            dueDate: due,
             dueClass: dueClass || undefined,
         };
         if (editingId !== null) {
@@ -203,18 +205,6 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                             ))}
                         </select>
                     </label>
-                    <label>
-                        Start date
-                        <input
-                            type="date"
-                            required={!dueClass}
-                            max={dueClass || undefined}
-                            value={startDate}
-                            onChange={(event) =>
-                                setStartDate(event.target.value)
-                            }
-                        />
-                    </label>
                     {classChoices.length > 0 && (
                         <label>
                             Due
@@ -235,16 +225,16 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                             </select>
                         </label>
                     )}
+                    {/* A class picked above is the due date. */}
                     {!dueClass && (
                         <label>
-                            Finish date
+                            Due date
                             <input
                                 type="date"
                                 required
-                                min={startDate || undefined}
-                                value={finishDate}
+                                value={dueDate}
                                 onChange={(event) =>
-                                    setFinishDate(event.target.value)
+                                    setDueDate(event.target.value)
                                 }
                             />
                         </label>
@@ -258,12 +248,34 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                         </div>
                     )}
                 </form>
+                <div className="task-filter-bar">
+                    <label>
+                        Filter by course
+                        <select
+                            value={courseFilter}
+                            onChange={(event) =>
+                                setCourseFilter(event.target.value)
+                            }
+                        >
+                            <option>All</option>
+                            {courseOptions.map((code) => (
+                                <option key={code}>{code}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
                 {semesterTasks.length === 0 && (
                     <p className="task-edit-notice" role="status">
                         No tasks scheduled for {semester}. Add a task above to
                         get started.
                     </p>
                 )}
+                {semesterTasks.length > 0 &&
+                    filteredSemesterTasks.length === 0 && (
+                        <p className="task-edit-notice" role="status">
+                            No tasks found for {courseFilter} in {semester}.
+                        </p>
+                    )}
                 {[false, true].map((completed) => (
                     <section
                         key={String(completed)}
@@ -274,7 +286,7 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                         <h2>
                             {completed ? "Completed Tasks" : "Active Tasks"}
                         </h2>
-                        {!semesterTasks.some(
+                        {!filteredSemesterTasks.some(
                             (task) => task.completed === completed,
                         ) && (
                             <p>
@@ -287,7 +299,7 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                             className="task-list"
                             aria-label={completed ? "Completed tasks" : "Tasks"}
                         >
-                            {semesterTasks
+                            {filteredSemesterTasks
                                 .filter((task) => task.completed === completed)
                                 .map((task) => (
                                     <li
@@ -330,20 +342,10 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                                         </span>
                                         <span className="task-date">
                                             <span className="task-date-label">
-                                                Start date
+                                                Due date
                                             </span>
-                                            <time dateTime={task.startDate}>
-                                                {formatTaskDate(task.startDate)}
-                                            </time>
-                                        </span>
-                                        <span className="task-date">
-                                            <span className="task-date-label">
-                                                Finish date
-                                            </span>
-                                            <time dateTime={task.finishDate}>
-                                                {formatTaskDate(
-                                                    task.finishDate,
-                                                )}
+                                            <time dateTime={task.dueDate}>
+                                                {formatTaskDate(task.dueDate)}
                                             </time>
                                             {task.dueClass && (
                                                 <small className="task-due-class">
