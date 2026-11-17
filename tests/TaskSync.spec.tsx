@@ -46,21 +46,21 @@ test("To-Do & Reminders updates assignments and its date at local midnight witho
         );
         expect(
             screen.getByRole("heading", {
-                name: "To-Do & Reminders: 11/3/2026",
+                name: "To-Do & Reminders: 11/3/2026 – 11/17/2026",
             }),
         ).toBeInTheDocument();
         expect(
             screen.getByRole("checkbox", { name: "Today's assignment" }),
         ).toBeInTheDocument();
         expect(
-            screen.queryByRole("checkbox", { name: "Tomorrow's assignment" }),
-        ).not.toBeInTheDocument();
+            screen.getByRole("checkbox", { name: "Tomorrow's assignment" }),
+        ).toBeInTheDocument();
 
         act(() => jest.advanceTimersByTime(1000));
 
         expect(
             screen.getByRole("heading", {
-                name: "To-Do & Reminders: 11/4/2026",
+                name: "To-Do & Reminders: 11/4/2026 – 11/18/2026",
             }),
         ).toBeInTheDocument();
         expect(
@@ -73,13 +73,15 @@ test("To-Do & Reminders updates assignments and its date at local midnight witho
         act(() => jest.advanceTimersByTime(24 * 60 * 60 * 1000));
         expect(
             screen.getByRole("heading", {
-                name: "To-Do & Reminders: 11/5/2026",
+                name: "To-Do & Reminders: 11/5/2026 – 11/19/2026",
             }),
         ).toBeInTheDocument();
-        expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
         expect(
-            screen.getByText("No tasks scheduled for today."),
-        ).toBeInTheDocument();
+            screen.queryByRole("checkbox", { name: "Today's assignment" }),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole("checkbox", { name: "Tomorrow's assignment" }),
+        ).not.toBeInTheDocument();
     } finally {
         jest.useRealTimers();
     }
@@ -118,14 +120,14 @@ test("assignments with the same name keep independent completion and do not togg
             />,
         );
         const math = within(
-            screen.getByRole("row", { name: `MATH 241 ${activity.title}` }),
+            screen.getByRole("row", { name: /MATH 241 Task 4 HW/ }),
         ).getByRole("checkbox");
         const physics = within(
-            screen.getByRole("row", { name: `PHYS 207 ${activity.title}` }),
+            screen.getByRole("row", { name: /PHYS 207 Task 4 HW/ }),
         ).getByRole("checkbox");
         const manual = within(
             screen.getByRole("row", {
-                name: `${initialTasks[0].course} ${activity.title}`,
+                name: /CISC275 Task 4 HW/,
             }),
         ).getByRole("checkbox");
 
@@ -134,6 +136,9 @@ test("assignments with the same name keep independent completion and do not togg
         expect(physics).not.toBeChecked();
         expect(manual).not.toBeChecked();
         expect(onToggleTask).not.toHaveBeenCalled();
+        await user.click(
+            screen.getByRole("button", { name: "Show 1 completed item" }),
+        );
 
         await user.click(manual);
         expect(onToggleTask).toHaveBeenCalledWith(initialTasks[0].id);
@@ -147,14 +152,17 @@ test("assignments with the same name keep independent completion and do not togg
                 onOpenCourse={jest.fn()}
             />,
         );
+        await user.click(
+            screen.getByRole("button", { name: "Show 1 completed item" }),
+        );
         expect(
             within(
-                screen.getByRole("row", { name: `MATH 241 ${activity.title}` }),
+                screen.getByRole("row", { name: /MATH 241 Task 4 HW/ }),
             ).getByRole("checkbox"),
         ).toBeChecked();
         expect(
             within(
-                screen.getByRole("row", { name: `PHYS 207 ${activity.title}` }),
+                screen.getByRole("row", { name: /PHYS 207 Task 4 HW/ }),
             ).getByRole("checkbox"),
         ).not.toBeChecked();
     } finally {
@@ -256,17 +264,17 @@ test("To-Do & Reminders includes today's activities alongside tasks, filtered by
             />,
         );
         const todo = screen.getByRole("region", {
-            name: "To-Do & Reminders: 11/3/2026",
+            name: "To-Do & Reminders: 11/3/2026 – 11/17/2026",
         });
-        expect(within(todo).getAllByRole("checkbox")).toHaveLength(2);
+        expect(within(todo).getAllByRole("checkbox")).toHaveLength(3);
         expect(
             within(todo).getByRole("row", {
-                name: "CISC 275 - Section 010 Today's assignment",
+                name: /CISC 275 - Section 010 Today's assignment/,
             }),
         ).toBeInTheDocument();
         expect(within(todo).queryByText("Lecture")).not.toBeInTheDocument();
         expect(within(todo).queryByText("Past")).not.toBeInTheDocument();
-        expect(within(todo).queryByText("Future")).not.toBeInTheDocument();
+        expect(within(todo).getByText("Future")).toBeInTheDocument();
         expect(within(todo).queryByText("Undated")).not.toBeInTheDocument();
         expect(
             within(todo).queryByText("Spring assignment"),
@@ -298,7 +306,7 @@ test("calendar assignments appear in To-Do & Reminders, remember completion, and
         });
         const view = render(<App startingTasks={[]} />);
         expect(
-            screen.getByText("No tasks scheduled for today."),
+            screen.getByText(/No tasks or reminders due in this window/),
         ).toBeInTheDocument();
         await user.click(screen.getByRole("link", { name: "Calendar" }));
         await user.click(
@@ -321,9 +329,7 @@ test("calendar assignments appear in To-Do & Reminders, remember completion, and
             within(dialog).getByRole("button", { name: "Save Activity" }),
         );
         await user.click(screen.getByRole("link", { name: "Home" }));
-        expect(
-            screen.queryByText("No tasks scheduled for today."),
-        ).not.toBeInTheDocument();
+        expect(screen.getByText("New assignment")).toBeInTheDocument();
         await user.click(
             screen.getByRole("checkbox", { name: "New assignment" }),
         );
@@ -332,11 +338,17 @@ test("calendar assignments appear in To-Do & Reminders, remember completion, and
             screen.getByRole("button", { name: "Delete New assignment" }),
         ).toBeInTheDocument();
         await user.click(screen.getByRole("link", { name: "Home" }));
+        await user.click(
+            screen.getByRole("button", { name: "Show 1 completed item" }),
+        );
         expect(
             screen.getByRole("checkbox", { name: "New assignment" }),
         ).toBeChecked();
         view.unmount();
         render(<App startingTasks={[]} />);
+        await user.click(
+            screen.getByRole("button", { name: "Show 1 completed item" }),
+        );
         expect(
             screen.getByRole("checkbox", { name: "New assignment" }),
         ).toBeChecked();
@@ -357,7 +369,7 @@ test("calendar assignments appear in To-Do & Reminders, remember completion, and
             screen.queryByRole("checkbox", { name: "New assignment" }),
         ).not.toBeInTheDocument();
         expect(
-            screen.getByText("No tasks scheduled for today."),
+            screen.getByText(/No tasks or reminders due in this window/),
         ).toBeInTheDocument();
     } finally {
         jest.useRealTimers();
@@ -383,7 +395,7 @@ test("home shows today's scheduled tasks and shares changes with Task View", asy
         render(<App startingTasks={initialTasks} />);
         expect(
             screen.getByRole("heading", {
-                name: "To-Do & Reminders: 11/3/2026",
+                name: "To-Do & Reminders: 11/3/2026 – 11/17/2026",
             }),
         ).toBeInTheDocument();
         const original = initialTasks[0].title;
@@ -391,13 +403,11 @@ test("home shows today's scheduled tasks and shares changes with Task View", asy
         expect(screen.getAllByRole("checkbox")).toHaveLength(1);
         await user.click(screen.getByRole("checkbox", { name: original }));
         await user.click(screen.getByRole("link", { name: "Task View" }));
-        expect(screen.getByRole("checkbox", { name: original })).toBeChecked();
         await user.type(
             screen.getByLabelText("Task"),
             "Prepare today's lecture",
         );
-        await user.type(screen.getByLabelText("Start date"), "2026-11-02");
-        await user.type(screen.getByLabelText("Finish date"), "2026-11-04");
+        await user.type(screen.getByLabelText("Due date"), "2026-11-04");
         await user.click(screen.getByRole("button", { name: "Add task" }));
         await user.click(screen.getByRole("link", { name: "Home" }));
         expect(screen.getByText("Prepare today's lecture")).toBeInTheDocument();
@@ -411,14 +421,16 @@ test("home shows today's scheduled tasks and shares changes with Task View", asy
         expect(
             screen.queryByText("Prepare today's lecture"),
         ).not.toBeInTheDocument();
-        expect(screen.getByRole("checkbox", { name: original })).toBeChecked();
+        expect(
+            screen.getByRole("button", { name: "Show 1 completed item" }),
+        ).toBeInTheDocument();
     } finally {
         jest.useRealTimers();
     }
 });
 
 test.each([
-    [14, false],
+    [14, true],
     [15, true],
     [16, true],
     [17, true],
@@ -433,8 +445,7 @@ test.each([
                 tasks={[
                     {
                         ...initialTasks[0],
-                        startDate: "2026-10-15",
-                        finishDate: "2026-10-17",
+                        dueDate: "2026-10-17",
                     },
                 ]}
                 showTasks

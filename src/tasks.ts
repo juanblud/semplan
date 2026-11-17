@@ -3,7 +3,6 @@ export interface Task {
     title: string;
     course: string;
     semester: string;
-    startDate: string;
-    finishDate: string;
+    dueDate: string;
     completed: boolean;
 }
