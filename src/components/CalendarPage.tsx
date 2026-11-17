@@ -825,7 +825,7 @@ export function CalendarPage({
                 <span>
                     {task.course === "All" ? "Task" : task.course} ·{" "}
                     {"Due\u00a0"}
-                    {formatShortTaskDate(task.finishDate)}
+                    {formatShortTaskDate(task.dueDate)}
                 </span>
             </div>
         );
@@ -916,9 +916,7 @@ export function CalendarPage({
         const key = toDateKey(date);
         const meetings = getMeetings(date);
         const dayItems = courseItems.filter((item) => item.date === key);
-        const dayTasks = calendarTasks.filter(
-            (task) => task.startDate <= key && key <= task.finishDate,
-        );
+        const dayTasks = calendarTasks.filter((task) => task.dueDate === key);
         // Activities sit in their course's meeting when it meets that day.
         const looseActivities = dayItems
             .filter(
