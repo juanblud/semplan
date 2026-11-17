@@ -3,7 +3,14 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 import type { Task } from "../tasks";
 import { AddSemesterButton } from "./AddSemesterButton";
 import type { Course } from "./CoursesPage";
-import { getCalendarSemesters } from "./calendarStorage";
+import { formatShortDate, toDateKey } from "./calendarDates";
+import {
+    CANCELLED_KEY,
+    getCalendarSemesters,
+    loadSaved,
+} from "./calendarStorage";
+import { getClassesFrom, toScheduledCourse } from "./courseSchedule";
+import { findTaskCourse, normalizeCourseCode } from "./taskSchedule";
 import { useSelectedSemester } from "./useSelectedSemester";
 
 interface TaskViewPageProps {
@@ -12,13 +19,12 @@ interface TaskViewPageProps {
     setTasks: Dispatch<SetStateAction<Task[]>>;
 }
 
+// How many upcoming classes "Due" offers.
+const CLASS_CHOICES = 6;
+
 function formatTaskDate(date: string): string {
     const [year, month, day] = date.split("-");
     return `${month}/${day}/${year}`;
-}
-
-function normalizeCourseCode(code: string): string {
-    return code.toUpperCase().replace(/\s+/g, "");
 }
 
 export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
@@ -29,12 +35,40 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
     const [course, setCourse] = useState("All");
     const [startDate, setStartDate] = useState("");
     const [finishDate, setFinishDate] = useState("");
+    // The class a task is due at, or "" for a finish date instead.
+    const [dueClass, setDueClass] = useState("");
     const [editingId, setEditingId] = useState<number | null>(null);
     const titleInput = useRef<HTMLInputElement>(null);
+    const [cancelledClasses] = useState(() =>
+        loadSaved<string>(CANCELLED_KEY, []),
+    );
+    const todayKey = toDateKey(new Date());
     function changeSemester(name: string) {
         setSemester(name);
         setCourse("All");
+        setDueClass("");
     }
+    // The chosen course's next few classes, for "Due". A task being edited
+    // keeps its own class as a choice even once that class has passed.
+    const taskCourse =
+        course === "All" ? undefined : (
+            findTaskCourse({ course, semester }, courses)
+        );
+    const term = semesters.find((option) => option.name === semester);
+    const upcomingClasses =
+        taskCourse && term ?
+            getClassesFrom(
+                todayKey,
+                toScheduledCourse(taskCourse),
+                term,
+                cancelledClasses,
+                CLASS_CHOICES,
+            )
+        :   [];
+    const classChoices =
+        dueClass && !upcomingClasses.includes(dueClass) ?
+            [dueClass, ...upcomingClasses]
+        :   upcomingClasses;
     const semesterCourses = courses.filter(
         (item) => item.semester === semester,
     );
@@ -51,6 +85,7 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
         setCourse("All");
         setStartDate("");
         setFinishDate("");
+        setDueClass("");
     }
 
     function editTask(task: Task) {
@@ -61,31 +96,28 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
         );
         setStartDate(task.startDate);
         setFinishDate(task.finishDate);
+        setDueClass(task.dueClass ?? "");
         titleInput.current?.focus();
     }
 
     function saveTask(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (
-            !title.trim() ||
-            !startDate ||
-            !finishDate ||
-            finishDate < startDate
-        )
-            return;
+        // A task due at a class can skip its start date; it starts today.
+        const start = startDate || (dueClass ? todayKey : "");
+        const finish = dueClass || finishDate;
+        if (!title.trim() || !start || !finish || finish < start) return;
+        const details = {
+            title: title.trim(),
+            course,
+            semester,
+            startDate: start,
+            finishDate: finish,
+            dueClass: dueClass || undefined,
+        };
         if (editingId !== null) {
             setTasks((current) =>
                 current.map((task) =>
-                    task.id === editingId ?
-                        {
-                            ...task,
-                            title: title.trim(),
-                            course,
-                            semester,
-                            startDate,
-                            finishDate,
-                        }
-                    :   task,
+                    task.id === editingId ? { ...task, ...details } : task,
                 ),
             );
             resetForm();
@@ -95,11 +127,7 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
             ...current,
             {
                 id: Math.max(0, ...current.map((task) => task.id)) + 1,
-                title: title.trim(),
-                course,
-                semester,
-                startDate,
-                finishDate,
+                ...details,
                 completed: false,
             },
         ]);
@@ -166,6 +194,7 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                             value={course}
                             onChange={(event) => {
                                 setCourse(event.target.value);
+                                setDueClass("");
                             }}
                         >
                             <option>All</option>
@@ -178,25 +207,48 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                         Start date
                         <input
                             type="date"
-                            required
+                            required={!dueClass}
+                            max={dueClass || undefined}
                             value={startDate}
                             onChange={(event) =>
                                 setStartDate(event.target.value)
                             }
                         />
                     </label>
-                    <label>
-                        Finish date
-                        <input
-                            type="date"
-                            required
-                            min={startDate || undefined}
-                            value={finishDate}
-                            onChange={(event) =>
-                                setFinishDate(event.target.value)
-                            }
-                        />
-                    </label>
+                    {classChoices.length > 0 && (
+                        <label>
+                            Due
+                            <select
+                                value={dueClass}
+                                onChange={(event) =>
+                                    setDueClass(event.target.value)
+                                }
+                            >
+                                <option value="">On a date</option>
+                                {classChoices.map((date) => (
+                                    <option key={date} value={date}>
+                                        {formatShortDate(date)}
+                                        {date === upcomingClasses.at(0) &&
+                                            " · next class"}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+                    {!dueClass && (
+                        <label>
+                            Finish date
+                            <input
+                                type="date"
+                                required
+                                min={startDate || undefined}
+                                value={finishDate}
+                                onChange={(event) =>
+                                    setFinishDate(event.target.value)
+                                }
+                            />
+                        </label>
+                    )}
                     {editingId !== null && (
                         <div className="task-edit-actions">
                             <button type="submit">Save changes</button>
@@ -293,6 +345,13 @@ export function TaskViewPage({ courses, tasks, setTasks }: TaskViewPageProps) {
                                                     task.finishDate,
                                                 )}
                                             </time>
+                                            {task.dueClass && (
+                                                <small className="task-due-class">
+                                                    {task.movedFrom ?
+                                                        `Moved: class on ${formatShortDate(task.movedFrom)} was cancelled`
+                                                    :   "Due at class"}
+                                                </small>
+                                            )}
                                         </span>
                                         <div className="task-actions">
                                             <button

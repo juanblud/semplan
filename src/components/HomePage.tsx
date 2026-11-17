@@ -9,7 +9,12 @@ import {
     loadCalendarItems,
     loadSaved,
 } from "./calendarStorage";
-import { addDays, parseDateKey, toDateKey } from "./calendarDates";
+import {
+    addDays,
+    formatShortDate,
+    parseDateKey,
+    toDateKey,
+} from "./calendarDates";
 import { getCoursePlan } from "./coursePlan";
 import type { Role } from "./SettingsPage";
 import { useSelectedSemester } from "./useSelectedSemester";
@@ -26,10 +31,20 @@ interface HomePageProps {
     showTasks: boolean;
     onToggleTask: (id: number) => void;
     onOpenCourse: (course: Course) => void;
-    // Opens a course in the Calendar to plan it.
-    onPlanCourse?: (course: Course) => void;
-    // Opens the Courses page, where course details are edited.
-    onEditCourses?: () => void;
+    // Opens a course in the Calendar to plan it, pointing out what needs it.
+    onPlanCourse?: (course: Course, focus: PlanFocus) => void;
+    // Opens a course's Edit form on the Courses page.
+    onEditCourse?: (course: Course) => void;
+}
+
+// What the Calendar points out when a "Needs attention" line is clicked.
+export interface PlanFocus {
+    // The first class this week with nothing planned.
+    focusDate?: string;
+    // There are unscheduled topics to drag in.
+    highlightTopics: boolean;
+    // There's an empty class but no topics to fill it: start a new one.
+    createTopic: boolean;
 }
 
 // One thing for a professor to look at, with the place to sort it out.
@@ -39,15 +54,12 @@ interface AttentionItem {
     text: string;
     action: string;
     onAction?: () => void;
+    // For the "Not started yet" line: each course, linked to start it.
+    links?: { course: Course; onClick: () => void }[];
 }
 
-function formatShortDate(key: string): string {
-    return parseDateKey(key).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-    });
-}
+// How many "Needs attention" lines show before "Show N more".
+const ATTENTION_SHOWN = 3;
 
 export function HomePage({
     courses,
@@ -57,12 +69,13 @@ export function HomePage({
     showTasks,
     onToggleTask,
     onPlanCourse,
-    onEditCourses,
+    onEditCourse,
 }: HomePageProps) {
     const calendarSemesters = getCalendarSemesters(courses);
     const semesters = calendarSemesters.map((term) => term.name);
     const [semester, setSemester] = useSelectedSemester(semesters);
     const [now, setNow] = useState(() => new Date());
+    const [showAllAttention, setShowAllAttention] = useState(false);
     const [activities] = useState(loadCalendarItems);
     const [cancelledClasses] = useState(() =>
         loadSaved<string>(CANCELLED_KEY, []),
@@ -133,6 +146,10 @@ export function HomePage({
     // nothing here asks them to type anything.
     const showAttention = role === "professor";
     const attention: AttentionItem[] = [];
+    // Courses with nothing planned at all share one line rather than each
+    // getting their own, which at the start of a semester would be all of
+    // them.
+    const notStarted: AttentionItem["links"] = [];
     if (showAttention && selectedSemester) {
         for (const course of visibleCourses) {
             const plan = getCoursePlan(
@@ -148,7 +165,20 @@ export function HomePage({
                     course,
                     text: "No meeting times set, so no classes to plan.",
                     action: "Add times",
-                    onAction: onEditCourses,
+                    onAction: () => onEditCourse?.(course),
+                });
+                continue;
+            }
+            if (!plan.started) {
+                // Opens the course's first upcoming class, ready for a topic.
+                notStarted.push({
+                    course,
+                    onClick: () =>
+                        onPlanCourse?.(course, {
+                            focusDate: plan.nextClass,
+                            highlightTopics: false,
+                            createTopic: true,
+                        }),
                 });
                 continue;
             }
@@ -178,9 +208,24 @@ export function HomePage({
                     course,
                     text: `${notes.join("; ")}.`,
                     action: "Plan",
-                    onAction: () => onPlanCourse?.(course),
+                    onAction: () =>
+                        onPlanCourse?.(course, {
+                            focusDate: plan.emptyClassesThisWeek.at(0),
+                            highlightTopics: plan.unscheduledTopics > 0,
+                            createTopic:
+                                plan.emptyClassesThisWeek.length > 0 &&
+                                plan.unscheduledTopics === 0,
+                        }),
                 });
             }
+        }
+        if (notStarted.length > 0) {
+            attention.push({
+                id: "not-started",
+                text: "Not started yet:",
+                action: "",
+                links: notStarted,
+            });
         }
         const gradingEnd = selectedSemester.gradingEnd;
         if (
@@ -299,38 +344,86 @@ export function HomePage({
                                 You&apos;re all set: every class this week has
                                 something planned.
                             </p>
-                        :   <ul className="attention-list">
-                                {attention.map((item) => (
-                                    <li
-                                        key={item.id}
-                                        style={
-                                            item.course && {
-                                                borderLeftColor:
-                                                    item.course.color,
+                        :   <>
+                                <ul className="attention-list">
+                                    {(showAllAttention ? attention : (
+                                        attention.slice(0, ATTENTION_SHOWN)
+                                    )
+                                    ).map((item) => (
+                                        <li
+                                            key={item.id}
+                                            className={
+                                                item.links ? "is-not-started"
+                                                :   undefined
                                             }
+                                            style={
+                                                item.course && {
+                                                    borderLeftColor:
+                                                        item.course.color,
+                                                }
+                                            }
+                                        >
+                                            <span>
+                                                {item.course && (
+                                                    <strong>
+                                                        {item.course.code}
+                                                        {item.course.section &&
+                                                            ` (${item.course.section})`}
+                                                    </strong>
+                                                )}{" "}
+                                                {item.text}
+                                                {item.links?.map(
+                                                    (link, index) => (
+                                                        <span
+                                                            key={link.course.id}
+                                                        >
+                                                            {index > 0 && ","}{" "}
+                                                            <button
+                                                                type="button"
+                                                                className="attention-link"
+                                                                aria-label={`Start planning ${link.course.code}`}
+                                                                onClick={
+                                                                    link.onClick
+                                                                }
+                                                            >
+                                                                {
+                                                                    link.course
+                                                                        .code
+                                                                }
+                                                            </button>
+                                                        </span>
+                                                    ),
+                                                )}
+                                            </span>
+                                            {item.action && item.onAction && (
+                                                <button
+                                                    type="button"
+                                                    onClick={item.onAction}
+                                                >
+                                                    {item.action}
+                                                </button>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                                {attention.length > ATTENTION_SHOWN && (
+                                    <button
+                                        type="button"
+                                        className="attention-more"
+                                        aria-expanded={showAllAttention}
+                                        onClick={() =>
+                                            setShowAllAttention(
+                                                (shown) => !shown,
+                                            )
                                         }
                                     >
-                                        <span>
-                                            {item.course && (
-                                                <strong>
-                                                    {item.course.code}
-                                                    {item.course.section &&
-                                                        ` (${item.course.section})`}
-                                                </strong>
-                                            )}{" "}
-                                            {item.text}
-                                        </span>
-                                        {item.action && item.onAction && (
-                                            <button
-                                                type="button"
-                                                onClick={item.onAction}
-                                            >
-                                                {item.action}
-                                            </button>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
+                                        {showAllAttention ?
+                                            "Show less"
+                                        :   `Show ${attention.length - ATTENTION_SHOWN} more`
+                                        }
+                                    </button>
+                                )}
+                            </>
                         }
                     </section>
                 )}

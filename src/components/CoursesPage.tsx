@@ -16,7 +16,7 @@ import { copySchedule } from "./scheduleTemplate";
 import { ScheduleTemplateActions } from "./ScheduleTemplateActions";
 import { MeetingScheduleFields } from "./MeetingScheduleFields";
 import type { MeetingSchedule, MeetingTime } from "./MeetingScheduleFields";
-import { parseDateKey } from "./calendarDates";
+import { formatShortDate, parseDateKey } from "./calendarDates";
 import { AddSemesterButton } from "./AddSemesterButton";
 import { getCoursePlan } from "./coursePlan";
 import type { CoursePlan } from "./coursePlan";
@@ -41,6 +41,12 @@ export interface CalendarCourseSelection {
     section?: string;
     semester: string;
     schedule: string;
+    // From Home's "Needs attention": a class to open the week on and point
+    // out, whether to point out the unscheduled topics, and whether to open
+    // the new-topic form because there are none to drag in.
+    focusDate?: string;
+    highlightTopics?: boolean;
+    createTopic?: boolean;
 }
 const storageKey = "semester-planner-courses-v1";
 const initialCourses: Course[] = [
@@ -100,14 +106,6 @@ function missingDetails(course: Course): string {
     return missing.length > 1 ?
             `${missing.slice(0, -1).join(", ")} and ${missing.at(-1)}`
         :   (missing.at(0) ?? "");
-}
-
-function formatShortDate(key: string): string {
-    return parseDateKey(key).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-    });
 }
 
 // A professor's at-a-glance plan for a course, in place of student tasks.
@@ -244,7 +242,11 @@ export function CoursesPage({
     tasks = [],
     onPlanInCalendar,
     role,
+    initialEditId,
 }: {
+    // A course whose Edit form opens straight away, e.g. from Home's
+    // "Add times".
+    initialEditId?: string;
     courses?: Course[];
     onCoursesChange?: (courses: Course[]) => void;
     tasks?: Task[];
@@ -262,8 +264,13 @@ export function CoursesPage({
     }
     const semesters = calendarSemesters.map((term) => term.name);
     const [semester, setSemester] = useSelectedSemester(semesters);
-    const [draft, setDraft] = useState<Course | null>(null);
-    const [meeting, setMeeting] = useState(() => parseMeetingSchedule(""));
+    const [draft, setDraft] = useState<Course | null>(() => {
+        const editing = courses.find((course) => course.id === initialEditId);
+        return editing ? { ...editing } : null;
+    });
+    const [meeting, setMeeting] = useState(() =>
+        parseMeetingSchedule(draft?.schedule ?? ""),
+    );
     const [savedTemplates, setSavedTemplates] = useState(() =>
         loadSaved<SavedTemplate>(TEMPLATE_KEY, []),
     );

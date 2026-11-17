@@ -1714,6 +1714,57 @@ describe("CalendarPage", () => {
             expect(screen.queryByRole("status")).not.toBeInTheDocument();
         });
 
+        test("fills unscheduled topics into the next empty classes and can undo it", async () => {
+            const user = setupUser();
+            render(<CalendarPage />);
+            await chooseCourse(user);
+            const unscheduled = screen.getByRole("complementary", {
+                name: "Unscheduled topics",
+            });
+
+            // Today is Wednesday, October 14. Wednesday has no topics and
+            // Friday only has an activity, so both count as empty, as does
+            // the next Monday.
+            await user.click(
+                within(unscheduled).getByRole("button", {
+                    name: "Fill 3 empty classes",
+                }),
+            );
+            for (const [day, topic] of [
+                ["Wednesday, October 14, 2026", "React Introduction"],
+                ["Friday, October 16, 2026", "What is SE?"],
+                ["Monday, October 19, 2026", "Forms"],
+            ]) {
+                expect(
+                    within(getDay(day)).getByText(topic),
+                ).toBeInTheDocument();
+            }
+            expect(unscheduled).toHaveTextContent("All topics scheduled");
+            expect(
+                within(unscheduled).queryByRole("button", { name: /^Fill/ }),
+            ).not.toBeInTheDocument();
+            expect(screen.getByRole("status")).toHaveTextContent(
+                "Placed 3 topics into classes from Wednesday, October 14, 2026 to Monday, October 19, 2026.",
+            );
+
+            await user.click(screen.getByRole("button", { name: "Undo" }));
+            expect(
+                within(unscheduled).getByText("React Introduction"),
+            ).toBeInTheDocument();
+            expect(
+                within(getDay("Wednesday, October 14, 2026")).queryByText(
+                    "React Introduction",
+                ),
+            ).not.toBeInTheDocument();
+        });
+
+        test("doesn't offer to fill under All Courses", () => {
+            render(<CalendarPage />);
+            expect(
+                screen.queryByRole("button", { name: /^Fill \d+ empty/ }),
+            ).not.toBeInTheDocument();
+        });
+
         test("shows what is left on a cancelled class day in the week view", async () => {
             const user = setupUser();
             render(<CalendarPage />);

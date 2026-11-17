@@ -19,6 +19,9 @@ export interface CoursePlan {
     // The course's name in calendar items, e.g. "CISC 275 - Section 010".
     key: string;
     hasSchedule: boolean;
+    // Whether any topic or activity exists for the course yet, scheduled or
+    // not. A course with none hasn't been started.
+    started: boolean;
     classesLeft: number;
     // Upcoming classes with at least one topic or activity on them.
     plannedClassesLeft: number;
@@ -48,6 +51,7 @@ export function getCoursePlan(
     const plan: CoursePlan = {
         key,
         hasSchedule: scheduled.meetingDays.length > 0,
+        started: courseItems.length > 0,
         classesLeft: 0,
         plannedClassesLeft: 0,
         emptyClassesThisWeek: [],

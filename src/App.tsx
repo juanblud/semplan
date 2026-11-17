@@ -14,6 +14,9 @@ import type { ColorScheme, Role, Settings } from "./components/SettingsPage";
 import { TaskViewPage } from "./components/TaskViewPage";
 import { WelcomeRoleDialog } from "./components/WelcomeRoleDialog";
 
+import { CANCELLED_KEY, loadSaved } from "./components/calendarStorage";
+import { resolveTaskDates } from "./components/taskSchedule";
+import { loadTasks, saveTasks } from "./tasks";
 import type { Task } from "./tasks";
 
 type Page = "home" | "courses" | "calendar" | "planning-notes" | "tasks";
@@ -103,13 +106,27 @@ function getPageFromUrl(role: Role): Page {
         :   (requested ?? "home");
 }
 
-export function App({ startingTasks = [] }: { startingTasks?: Task[] }) {
+// Tests pass their own starting tasks; otherwise they come from storage.
+export function App({ startingTasks }: { startingTasks?: Task[] }) {
     const [settings, setSettings] = useState(loadSettings);
-    const [tasks, setTasks] = useState(startingTasks);
+    const [tasks, setTasks] = useState(() => startingTasks ?? loadTasks());
     const [courses, setCourses] = useState(loadCourses);
+    // Tasks due at a class follow it when it's cancelled. The Calendar saves
+    // cancellations, so they're read fresh on each render.
+    const shownTasks = resolveTaskDates(
+        tasks,
+        courses,
+        loadSaved<string>(CANCELLED_KEY, []),
+    );
+
+    useEffect(() => {
+        saveTasks(tasks);
+    }, [tasks]);
     const [calendarCourse, setCalendarCourse] =
         useState<CalendarCourseSelection | null>(null);
     const [calendarReflectionOpen, setCalendarReflectionOpen] = useState(false);
+    // A course to open in its Edit form when Courses opens.
+    const [editCourseId, setEditCourseId] = useState<string | null>(null);
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [chosenPage, setPage] = useState<Page>(() =>
@@ -156,6 +173,7 @@ export function App({ startingTasks = [] }: { startingTasks?: Task[] }) {
         if (next === "tasks" && settings.role === "professor") return;
         setCalendarCourse(null);
         setCalendarReflectionOpen(false);
+        setEditCourseId(null);
         if (next !== page) {
             window.history.pushState(null, "", getPageUrl(next));
         }
@@ -252,7 +270,7 @@ export function App({ startingTasks = [] }: { startingTasks?: Task[] }) {
                 {page === "home" ?
                     <HomePage
                         courses={courses}
-                        tasks={tasks}
+                        tasks={shownTasks}
                         role={settings.role}
                         showTasks={settings.role === "student"}
                         onToggleTask={(id) =>
@@ -272,17 +290,21 @@ export function App({ startingTasks = [] }: { startingTasks?: Task[] }) {
                             setCalendarCourse(course);
                             setCalendarReflectionOpen(true);
                         }}
-                        onPlanCourse={(course) => {
+                        onPlanCourse={(course, focus) => {
                             navigate("calendar");
-                            setCalendarCourse(course);
+                            setCalendarCourse({ ...course, ...focus });
                         }}
-                        onEditCourses={() => navigate("courses")}
+                        onEditCourse={(course) => {
+                            navigate("courses");
+                            setEditCourseId(course.id);
+                        }}
                     />
                 : page === "courses" ?
                     <CoursesPage
+                        initialEditId={editCourseId ?? undefined}
                         courses={courses}
                         onCoursesChange={setCourses}
-                        tasks={tasks}
+                        tasks={shownTasks}
                         role={settings.role}
                         onPlanInCalendar={(course) => {
                             navigate("calendar");
@@ -294,7 +316,7 @@ export function App({ startingTasks = [] }: { startingTasks?: Task[] }) {
                         role={settings.role}
                         initialCourse={calendarCourse ?? undefined}
                         initialReflectionOpen={calendarReflectionOpen}
-                        tasks={tasks}
+                        tasks={shownTasks}
                         onToggleTask={(id) =>
                             setTasks((current) =>
                                 current.map((task) =>
@@ -309,7 +331,7 @@ export function App({ startingTasks = [] }: { startingTasks?: Task[] }) {
                     <PlanningNotesPage courses={courses} />
                 :   <TaskViewPage
                         courses={courses}
-                        tasks={tasks}
+                        tasks={shownTasks}
                         setTasks={setTasks}
                     />
                 }

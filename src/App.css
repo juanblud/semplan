@@ -1030,6 +1030,46 @@
     color: #fff;
 }
 
+/* "Not started yet: MATH 241, ENGL 110": each course is a link-style
+   button that starts planning it. */
+.attention-list .is-not-started {
+    border-left-color: var(--line);
+    color: var(--muted);
+}
+
+.attention-list .attention-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ud-blue);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.attention-list .attention-link:hover {
+    background: none;
+    color: var(--ud-blue-dark);
+}
+
+.attention-more {
+    align-self: flex-start;
+    margin-top: 8px;
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    color: var(--ud-blue);
+    cursor: pointer;
+    font: inherit;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 700;
+}
+
+.attention-more:hover {
+    color: var(--ud-blue-dark);
+    text-decoration: underline;
+}
+
 .attention-clear {
     margin: 0;
     padding: 14px 16px;
@@ -1489,16 +1529,31 @@ textarea:focus-visible {
     color: #fff;
 }
 
+/* Fields wrap and share the row by weight, since how many there are
+   changes: "Due" only appears for a course with classes, and "Finish date"
+   hides when a class is the due date. */
 .task-form {
-    display: grid;
-    grid-template-columns: 36px 1.5fr 1.2fr 0.8fr 0.7fr 1fr 1fr;
-    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
     gap: 14px;
     margin-bottom: 30px;
 }
 
-.task-form.is-editing {
-    grid-template-columns: 1.5fr 1.2fr 0.8fr 0.7fr 1fr 1fr;
+.task-form > * {
+    flex: 1 1 130px;
+}
+
+.task-form > .task-add {
+    flex: 0 0 36px;
+}
+
+.task-form > label:first-of-type {
+    flex: 1.5 1 180px;
+}
+
+.task-form > .task-semester-field {
+    flex: 1.3 1 210px;
 }
 
 .task-form label {
@@ -2053,6 +2108,7 @@ textarea:focus-visible {
 @media (max-width: 1200px) {
     .task-form,
     .task-form.is-editing {
+        display: grid;
         grid-template-columns: 1fr 1fr;
     }
 
@@ -2129,4 +2185,73 @@ textarea:focus-visible {
     .brand:hover {
         transform: none;
     }
+}
+
+/* ---------- Class notes and tasks due at a class ---------- */
+
+.task-due-class {
+    color: inherit;
+    font-size: calc(13px + var(--font-bump));
+    opacity: 0.85;
+}
+
+.note-class-date {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 700;
+}
+
+.note-next-class {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--ud-gold) 25%, var(--surface));
+    color: var(--ink);
+    font-size: calc(14px + var(--font-bump));
+}
+
+.class-pickup {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--ud-gold) 30%, var(--surface));
+    color: var(--ink);
+}
+
+.class-pickup p {
+    margin: 4px 0;
+    overflow-wrap: anywhere;
+}
+
+.class-pickup small,
+.class-notes small {
+    color: var(--muted);
+    font-size: calc(13px + var(--font-bump));
+}
+
+.class-notes {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 16px;
+}
+
+.class-notes label {
+    display: grid;
+    gap: 4px;
+    font-size: calc(14px + var(--font-bump));
+    font-weight: 700;
+}
+
+.class-notes textarea,
+.class-notes input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 400;
+    resize: vertical;
 }

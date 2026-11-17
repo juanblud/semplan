@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { CoursesPage, loadCourses } from "../src/components/CoursesPage";
 import type { Course } from "../src/components/CoursesPage";
+import { CalendarPage } from "../src/components/CalendarPage";
 import { HomePage } from "../src/components/HomePage";
 import { initialTasks } from "./fixtures/tasks";
 
@@ -96,6 +97,96 @@ describe("Courses for professors", () => {
     });
 });
 
+describe("Following a 'Needs attention' line", () => {
+    const cisc275 = {
+        code: "CISC 275",
+        semester: "Fall 2026",
+        schedule: "",
+    };
+
+    test("the Calendar opens on that course's week and points out the empty class and its topics", () => {
+        render(
+            <CalendarPage
+                role="professor"
+                initialCourse={{
+                    ...cisc275,
+                    focusDate: "2026-10-14",
+                    highlightTopics: true,
+                }}
+            />,
+        );
+
+        expect(screen.getByRole("combobox", { name: "Course" })).toHaveValue(
+            "CISC 275",
+        );
+        expect(
+            screen.getByRole("heading", {
+                name: "Week of: October 11–17, 2026",
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen
+                .getByRole("button", {
+                    name: /^Class meeting on Wednesday, October 14, 2026/,
+                })
+                .closest(".calendar-meeting"),
+        ).toHaveClass("is-attention");
+        expect(
+            screen.getByRole("complementary", { name: "Unscheduled topics" }),
+        ).toHaveClass("is-attention");
+        // The topics are there to drag in, so no new-topic form.
+        expect(
+            screen.queryByRole("textbox", { name: "Topic name" }),
+        ).not.toBeInTheDocument();
+    });
+
+    test("with no topics to drag in, the new-topic form opens ready to type", () => {
+        render(
+            <CalendarPage
+                role="professor"
+                initialCourse={{
+                    ...cisc275,
+                    focusDate: "2026-10-14",
+                    highlightTopics: false,
+                    createTopic: true,
+                }}
+            />,
+        );
+
+        expect(
+            screen.getByRole("textbox", { name: "Topic name" }),
+        ).toHaveFocus();
+        expect(
+            screen.getByRole("complementary", { name: "Unscheduled topics" }),
+        ).not.toHaveClass("is-attention");
+    });
+
+    test("the highlight goes away after a few seconds", () => {
+        render(
+            <CalendarPage
+                role="professor"
+                initialCourse={{ ...cisc275, highlightTopics: true }}
+            />,
+        );
+        const panel = screen.getByRole("complementary", {
+            name: "Unscheduled topics",
+        });
+        expect(panel).toHaveClass("is-attention");
+
+        act(() => {
+            jest.advanceTimersByTime(4000);
+        });
+        expect(panel).not.toHaveClass("is-attention");
+    });
+
+    test("'Add times' opens Courses straight into that course's Edit form", () => {
+        const [first] = loadCourses();
+        render(<CoursesPage role="professor" initialEditId={first.id} />);
+
+        expect(screen.getByLabelText("Course code *")).toHaveValue(first.code);
+    });
+});
+
 describe("Home for professors", () => {
     const unscheduled: Course = {
         id: "math241",
@@ -111,7 +202,7 @@ describe("Home for professors", () => {
 
     function renderHome(courses: Course[]) {
         const onPlanCourse = jest.fn();
-        const onEditCourses = jest.fn();
+        const onEditCourse = jest.fn();
         render(
             <HomePage
                 courses={courses}
@@ -121,15 +212,15 @@ describe("Home for professors", () => {
                 onToggleTask={jest.fn()}
                 onOpenCourse={jest.fn()}
                 onPlanCourse={onPlanCourse}
-                onEditCourses={onEditCourses}
+                onEditCourse={onEditCourse}
             />,
         );
-        return { onPlanCourse, onEditCourses };
+        return { onPlanCourse, onEditCourse };
     }
 
     test("lists what needs planning, each linked to where it's fixed", () => {
         const [cisc275] = loadCourses();
-        const { onPlanCourse, onEditCourses } = renderHome([
+        const { onPlanCourse, onEditCourse } = renderHome([
             cisc275,
             unscheduled,
         ]);
@@ -146,7 +237,13 @@ describe("Home for professors", () => {
             "CISC 275 Wed, Oct 14 has nothing planned (+1 more this week)",
         );
         fireEvent.click(within(empty!).getByRole("button", { name: "Plan" }));
-        expect(onPlanCourse).toHaveBeenCalledWith(cisc275);
+        // The Calendar is told which empty class to point out, and that
+        // there are unscheduled topics to drag in.
+        expect(onPlanCourse).toHaveBeenCalledWith(cisc275, {
+            focusDate: "2026-10-14",
+            highlightTopics: true,
+            createTopic: false,
+        });
 
         const noTimes = list.find((item) =>
             item.textContent.includes("No meeting times set"),
@@ -155,7 +252,60 @@ describe("Home for professors", () => {
         fireEvent.click(
             within(noTimes!).getByRole("button", { name: "Add times" }),
         );
-        expect(onEditCourses).toHaveBeenCalled();
+        expect(onEditCourse).toHaveBeenCalledWith(unscheduled);
+    });
+
+    test("groups courses with nothing planned yet into one line", () => {
+        const [cisc275] = loadCourses();
+        const fresh = ["ENGL 110", "PHYS 207", "HIST 104"].map(
+            (code): Course => ({
+                ...unscheduled,
+                id: code,
+                code,
+                section: "",
+                schedule: "Mon / Wed / Fri 9:05 AM - 9:55 AM",
+            }),
+        );
+        const { onPlanCourse } = renderHome([cisc275, ...fresh]);
+        const region = screen.getByRole("region", { name: "Needs attention" });
+
+        // CISC 275 has topics, so it keeps its own line; the three new
+        // courses share one.
+        expect(within(region).getAllByRole("listitem")).toHaveLength(2);
+        expect(region).toHaveTextContent(
+            "Not started yet: ENGL 110, PHYS 207, HIST 104",
+        );
+        fireEvent.click(
+            within(region).getByRole("button", {
+                name: "Start planning PHYS 207",
+            }),
+        );
+        // Opens its next class with the new-topic form ready.
+        expect(onPlanCourse).toHaveBeenCalledWith(fresh[1], {
+            focusDate: "2026-10-14",
+            highlightTopics: false,
+            createTopic: true,
+        });
+    });
+
+    test("shows three lines, then the rest behind 'Show N more'", () => {
+        const noTimes = ["A", "B", "C", "D", "E"].map((letter): Course => ({
+            ...unscheduled,
+            id: letter,
+            code: `MATH 10${letter}`,
+        }));
+        renderHome(noTimes);
+        const region = screen.getByRole("region", { name: "Needs attention" });
+
+        expect(within(region).getAllByRole("listitem")).toHaveLength(3);
+        fireEvent.click(
+            within(region).getByRole("button", { name: "Show 2 more" }),
+        );
+        expect(within(region).getAllByRole("listitem")).toHaveLength(5);
+        fireEvent.click(
+            within(region).getByRole("button", { name: "Show less" }),
+        );
+        expect(within(region).getAllByRole("listitem")).toHaveLength(3);
     });
 
     test("says so when nothing needs attention", () => {
