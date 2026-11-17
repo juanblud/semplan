@@ -106,6 +106,12 @@ export function WeekReflectionPanel({
                                 onChange({ [field]: event.target.value })
                             }
                         />
+                        <span
+                            className="calendar-print-only"
+                            aria-hidden="true"
+                        >
+                            {reflection?.[field] ?? ""}
+                        </span>
                     </label>
                 ))}
             </div>

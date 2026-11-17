@@ -1014,6 +1014,21 @@ export function CalendarPage({
         <section className="calendar-page">
             <header className="page-header">
                 <h1>Calendar</h1>
+                <div className="calendar-print-only" aria-hidden="true">
+                    <p>
+                        {semesterName} · {showAll ? "All Courses" : course.code}
+                    </p>
+                    <p>
+                        {formatLongDate(parseDateKey(semester.start))} –{" "}
+                        {formatLongDate(parseDateKey(semester.end))}
+                    </p>
+                    <p>
+                        {view === "week" ? "Weekly" : "Monthly"} view ·{" "}
+                        {visibleDayIndexes
+                            .map((index) => WEEKDAYS[index])
+                            .join(", ")}
+                    </p>
+                </div>
             </header>
 
             <section
@@ -1089,6 +1104,9 @@ export function CalendarPage({
                     onClick={() => setAddingActivity(true)}
                 >
                     +&nbsp; Add Activity
+                </button>
+                <button type="button" onClick={() => window.print()}>
+                    Print
                 </button>
             </section>
 
@@ -1208,6 +1226,9 @@ export function CalendarPage({
                             setWeekLabel(focusWeek, event.target.value)
                         }
                     />
+                    <span className="calendar-print-only" aria-hidden="true">
+                        {getWeekLabel(focusWeek)}
+                    </span>
                 </div>
             )}
 
