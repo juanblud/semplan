@@ -25,24 +25,10 @@
     text-transform: uppercase;
 }
 
-.calendar-toolbar input[type="date"] {
-    height: 38px;
-    padding: 1px 8px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--field);
-    color: var(--ink);
-    font: inherit;
-    font-size: calc(16px + var(--font-bump));
-    font-weight: 400;
-    letter-spacing: normal;
-    text-transform: none;
-}
-
-/* Placeholder until semester dates are editable. */
-.calendar-toolbar input[type="date"]:disabled {
-    color: var(--muted);
-    cursor: not-allowed;
+/* The semester's dates, as a line under the page title. */
+.calendar-page .page-header .calendar-semester-dates {
+    margin-top: 6px;
+    font-size: calc(15px + var(--font-bump));
 }
 
 .calendar-toolbar select {
@@ -1015,6 +1001,40 @@
     color: #8e2a1f;
 }
 
+/* The Unscheduled panel's buttons are filled blue; its × buttons stay
+   plain like the rest. */
+.calendar-unscheduled button.calendar-delete {
+    height: 18px;
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: calc(15px + var(--font-bump));
+    font-weight: 400;
+}
+
+.calendar-unscheduled button.calendar-delete:hover {
+    background: #fdecea;
+    color: #8e2a1f;
+}
+
+/* With a mouse, a topic's or activity's × appears only when you point at
+   or tab to it, so the calendar reads as content rather than controls.
+   Touch screens, which can't hover, always show it. */
+@media (hover: hover) {
+    .calendar-topic > .calendar-delete,
+    .calendar-activity > .calendar-delete {
+        opacity: 0;
+        transition: opacity 120ms ease;
+    }
+
+    .calendar-topic:hover > .calendar-delete,
+    .calendar-topic:focus-within > .calendar-delete,
+    .calendar-activity:hover > .calendar-delete,
+    .calendar-activity:focus-within > .calendar-delete {
+        opacity: 1;
+    }
+}
+
 /* Activities keep their × in the top-right corner, clear of the title. */
 .calendar-activity > .calendar-delete {
     position: absolute;
@@ -1356,12 +1376,67 @@ button.cancel-plan-option:focus-visible {
     content: "";
 }
 
+/* "Week 11 of 16 ▾" in the navigation row opens every week as a panel. */
+.calendar-week-menu {
+    position: relative;
+}
+
+.calendar-month-nav .calendar-week-menu-toggle {
+    width: auto;
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: calc(15px + var(--font-bump));
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.calendar-month-nav .calendar-week-menu-toggle[aria-expanded="true"] {
+    background: var(--blue-fill);
+    color: #fff;
+}
+
 .calendar-week-strip {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    left: 0;
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    margin: 0 0 clamp(6px, 1.4vh, 14px);
-    padding-bottom: 4px;
-    overflow-x: auto;
+    width: max-content;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+/* On narrow screens the panel spans the navigation row instead of
+   starting at its button, so it can't run off the right edge. */
+@media (max-width: 700px) {
+    .calendar-month-nav {
+        position: relative;
+    }
+
+    .calendar-week-menu {
+        position: static;
+    }
+
+    .calendar-week-strip {
+        right: 0;
+        width: auto;
+        max-width: none;
+    }
+}
+
+/* Undo the navigation row's square arrow-button size for the week
+   buttons inside the panel. */
+.calendar-month-nav .calendar-week-strip button {
+    width: auto;
+    height: auto;
+    line-height: 1.3;
+    font-size: calc(15px + var(--font-bump));
 }
 
 .calendar-week-strip button {

@@ -216,6 +216,22 @@
 }
 
 /* Subtle theme-matched glows stay fixed while content scrolls. */
+/* Scrollbars are thin and stay hidden until you point at, or tab into, the
+   area that scrolls; they keep their space while hidden, so nothing shifts
+   when they appear. Touch screens keep their own overlay scrollbars. */
+@media (hover: hover) {
+    .app-shell,
+    .app-shell * {
+        scrollbar-color: transparent transparent;
+        scrollbar-width: thin;
+    }
+
+    .app-shell :is(:hover, :focus-within) {
+        scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent)
+            transparent;
+    }
+}
+
 .app-shell {
     display: flex;
     /* Exactly one screen tall: pages fit inside it rather than scrolling. */

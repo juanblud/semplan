@@ -138,6 +138,24 @@ function courseColorStyle(color?: string): CSSProperties | undefined {
     return color ? ({ "--course-color": color } as CSSProperties) : undefined;
 }
 
+// "Sep 1 – Dec 14, 2026", with both years when the range crosses one.
+function formatDateRange(startKey: string, endKey: string): string {
+    const start = parseDateKey(startKey);
+    const end = parseDateKey(endKey);
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const startText = start.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        ...(sameYear ? {} : { year: "numeric" }),
+    });
+    const endText = end.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+    return `${startText} – ${endText}`;
+}
+
 // A clipboard marks activities (assignments, tests and the like) so they
 // stand apart from the plain topic chips.
 function ActivityIcon() {
@@ -233,6 +251,31 @@ export function CalendarPage({
         loadSaved<WeekReflection>(REFLECTIONS_KEY, []),
     );
     const addActivityButton = useRef<HTMLButtonElement>(null);
+    const [weekMenuOpen, setWeekMenuOpen] = useState(false);
+    const weekMenu = useRef<HTMLDivElement>(null);
+
+    // The week menu closes on a click outside it or Escape, like a dropdown.
+    useEffect(() => {
+        if (!weekMenuOpen) {
+            return;
+        }
+        function closeOnOutsideClick(event: MouseEvent) {
+            if (!weekMenu.current?.contains(event.target as Node)) {
+                setWeekMenuOpen(false);
+            }
+        }
+        function closeOnEscape(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                setWeekMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", closeOnOutsideClick);
+        document.addEventListener("keydown", closeOnEscape);
+        return () => {
+            document.removeEventListener("mousedown", closeOnOutsideClick);
+            document.removeEventListener("keydown", closeOnEscape);
+        };
+    }, [weekMenuOpen]);
 
     const course = courses.find((option) => option.code === courseCode) ??
         courses.at(0) ?? { code: "", meetingDays: [], meetingTime: "" };
@@ -1014,6 +1057,13 @@ export function CalendarPage({
         <section className="calendar-page">
             <header className="page-header">
                 <h1>Calendar</h1>
+                {/* The semester's dates, which drive the week numbers. Shown
+                    as text rather than fields since they aren't editable
+                    here yet. */}
+                <p className="calendar-semester-dates">
+                    {semesterName} runs{" "}
+                    {formatDateRange(semester.start, semester.end)}
+                </p>
             </header>
 
             <section
@@ -1040,28 +1090,6 @@ export function CalendarPage({
                         onAdd={changeSemester}
                     />
                 </div>
-                {/* PLACEHOLDER: the semester's first and last day drive the
-                    week numbers. These show the built-in dates for now; they
-                    will become editable once they are tied in with the course
-                    input on the Courses page. */}
-                <label>
-                    <span>First day</span>
-                    <input
-                        type="date"
-                        value={semester.start}
-                        disabled
-                        title="Editing semester dates is coming soon"
-                    />
-                </label>
-                <label>
-                    <span>Last day</span>
-                    <input
-                        type="date"
-                        value={semester.end}
-                        disabled
-                        title="Editing semester dates is coming soon"
-                    />
-                </label>
                 <label>
                     <span>Course</span>
                     <select
@@ -1129,6 +1157,71 @@ export function CalendarPage({
                         Monthly
                     </button>
                 </div>
+                {/* Every semester week, to jump straight to one. Labelled
+                    weeks show their label. Tucked behind one button so it
+                    doesn't take a row of its own. */}
+                {hasCourse && (
+                    <div className="calendar-week-menu" ref={weekMenu}>
+                        <button
+                            type="button"
+                            className="calendar-week-menu-toggle"
+                            aria-expanded={weekMenuOpen}
+                            aria-controls="calendar-week-strip"
+                            onClick={() => setWeekMenuOpen((open) => !open)}
+                        >
+                            {highlightedWeek !== null ?
+                                `Week ${highlightedWeek} of ${weekCount}`
+                            :   "Jump to week"}
+                            <span aria-hidden="true"> ▾</span>
+                        </button>
+                        {weekMenuOpen && (
+                            <nav
+                                id="calendar-week-strip"
+                                className="calendar-week-strip"
+                                aria-label="Semester weeks"
+                            >
+                                {Array.from(
+                                    { length: weekCount },
+                                    (_, index) => {
+                                        const week = index + 1;
+                                        const label = getWeekLabel(week);
+                                        const className = [
+                                            label && "has-label",
+                                            week === todayWeek && "is-current",
+                                            !showAll &&
+                                                getReflection(week) &&
+                                                "has-reflection",
+                                        ]
+                                            .filter(Boolean)
+                                            .join(" ");
+                                        return (
+                                            <button
+                                                key={week}
+                                                type="button"
+                                                className={
+                                                    className || undefined
+                                                }
+                                                aria-pressed={
+                                                    week === highlightedWeek
+                                                }
+                                                title={label || `Week ${week}`}
+                                                onClick={() => {
+                                                    selectWeek(week);
+                                                    setWeekMenuOpen(false);
+                                                }}
+                                            >
+                                                <span>{week}</span>
+                                                {label && (
+                                                    <small>{label}</small>
+                                                )}
+                                            </button>
+                                        );
+                                    },
+                                )}
+                            </nav>
+                        )}
+                    </div>
+                )}
                 <div className="calendar-day-filters">
                     <label>
                         Days
@@ -1225,40 +1318,6 @@ export function CalendarPage({
                 <p className="calendar-reflection-hint">
                     Choose a single course to reflect on this week.
                 </p>
-            )}
-
-            {/* DRAFT idea 3: a numbered strip of every semester week, to jump
-                straight to one. Labelled weeks show their label. */}
-            {hasCourse && (
-                <nav
-                    className="calendar-week-strip"
-                    aria-label="Semester weeks"
-                >
-                    {Array.from({ length: weekCount }, (_, index) => {
-                        const week = index + 1;
-                        const label = getWeekLabel(week);
-                        const className = [
-                            label && "has-label",
-                            week === todayWeek && "is-current",
-                            !showAll && getReflection(week) && "has-reflection",
-                        ]
-                            .filter(Boolean)
-                            .join(" ");
-                        return (
-                            <button
-                                key={week}
-                                type="button"
-                                className={className || undefined}
-                                aria-pressed={week === highlightedWeek}
-                                title={label || `Week ${week}`}
-                                onClick={() => selectWeek(week)}
-                            >
-                                <span>{week}</span>
-                                {label && <small>{label}</small>}
-                            </button>
-                        );
-                    })}
-                </nav>
             )}
 
             {lastCancelled && (

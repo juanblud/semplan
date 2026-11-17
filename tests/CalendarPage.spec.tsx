@@ -27,6 +27,16 @@ function getDay(label: string) {
     return screen.getByRole("cell", { name: label });
 }
 
+// The semester's weeks sit behind the "Week N of M" button; this opens them.
+async function openWeeks(user: User) {
+    await user.click(
+        screen.getByRole("button", {
+            name: /^(Week \d+ of \d+|Jump to week)$/,
+        }),
+    );
+    return screen.getByRole("navigation", { name: "Semester weeks" });
+}
+
 describe("CalendarPage", () => {
     beforeEach(() => {
         localStorage.clear();
@@ -685,12 +695,18 @@ describe("CalendarPage", () => {
         const user = userEvent.setup();
         render(<CalendarPage />);
         await showOctober2026(user);
-        const strip = screen.getByRole("navigation", {
-            name: "Semester weeks",
-        });
 
         // Week 5 (September 27 – October 3) is already on the October grid.
-        await user.click(within(strip).getByRole("button", { name: "5" }));
+        await user.click(
+            within(await openWeeks(user)).getByRole("button", { name: "5" }),
+        );
+        // Choosing a week closes the menu, which then names it.
+        expect(
+            screen.queryByRole("navigation", { name: "Semester weeks" }),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.getByRole("button", { name: "Week 5 of 16" }),
+        ).toHaveAttribute("aria-expanded", "false");
         expect(
             screen.getByRole("heading", { name: "October 2026" }),
         ).toBeInTheDocument();
@@ -706,7 +722,9 @@ describe("CalendarPage", () => {
         );
 
         // Week 11 isn't, so the calendar moves to November to show it.
-        await user.click(within(strip).getByRole("button", { name: "11" }));
+        await user.click(
+            within(await openWeeks(user)).getByRole("button", { name: "11" }),
+        );
         expect(
             screen.getByRole("heading", { name: "November 2026" }),
         ).toBeInTheDocument();
@@ -727,10 +745,41 @@ describe("CalendarPage", () => {
 
         // Back in the monthly view, choosing the week again clears it.
         await user.click(screen.getByRole("button", { name: "Monthly" }));
-        await user.click(within(strip).getByRole("button", { name: "11" }));
+        await user.click(
+            within(await openWeeks(user)).getByRole("button", { name: "11" }),
+        );
         expect(getDay("Wednesday, November 11, 2026")).not.toHaveClass(
             "is-selected-week",
         );
+    });
+
+    test("the week menu closes on Escape or a click outside it", async () => {
+        const user = userEvent.setup();
+        render(<CalendarPage />);
+        await showOctober2026(user);
+
+        await openWeeks(user);
+        await user.keyboard("{Escape}");
+        expect(
+            screen.queryByRole("navigation", { name: "Semester weeks" }),
+        ).not.toBeInTheDocument();
+
+        await openWeeks(user);
+        await user.click(screen.getByRole("heading", { name: "October 2026" }));
+        expect(
+            screen.queryByRole("navigation", { name: "Semester weeks" }),
+        ).not.toBeInTheDocument();
+    });
+
+    test("shows the semester's dates under the title", async () => {
+        const user = userEvent.setup();
+        render(<CalendarPage />);
+        await showOctober2026(user);
+
+        expect(
+            screen.getByText("Fall 2026 runs Sep 1 – Dec 14, 2026"),
+        ).toBeInTheDocument();
+        expect(screen.queryByLabelText("First day")).not.toBeInTheDocument();
     });
 
     describe("day filters", () => {
@@ -919,12 +968,12 @@ describe("CalendarPage", () => {
             expect(
                 screen.getByRole("button", { name: "Shaky" }),
             ).toHaveAttribute("aria-pressed", "true");
-            const strip = screen.getByRole("navigation", {
-                name: "Semester weeks",
-            });
             expect(
-                within(strip).getByRole("button", { name: "7" }),
+                within(await openWeeks(user)).getByRole("button", {
+                    name: "7",
+                }),
             ).toHaveClass("has-reflection");
+            await user.keyboard("{Escape}");
 
             // The plan comes back the following week, and survives a reload.
             view.unmount();
@@ -950,9 +999,9 @@ describe("CalendarPage", () => {
                 }),
             );
             expect(
-                within(
-                    screen.getByRole("navigation", { name: "Semester weeks" }),
-                ).getByRole("button", { name: "7" }),
+                within(await openWeeks(user)).getByRole("button", {
+                    name: "7",
+                }),
             ).not.toHaveClass("has-reflection");
         });
 
@@ -980,9 +1029,9 @@ describe("CalendarPage", () => {
                 screen.getByRole("button", { name: "Shaky" }),
             ).toHaveAttribute("aria-pressed", "false");
             expect(
-                within(
-                    screen.getByRole("navigation", { name: "Semester weeks" }),
-                ).getByRole("button", { name: "7" }),
+                within(await openWeeks(user)).getByRole("button", {
+                    name: "7",
+                }),
             ).not.toHaveClass("has-reflection");
             expect(
                 screen.queryByRole("button", { name: "Clear" }),
