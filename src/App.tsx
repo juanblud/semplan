@@ -12,7 +12,7 @@ import { PlanningNotesPage } from "./components/PlanningNotesPage";
 import { SettingsDialog } from "./components/SettingsPage";
 import type { ColorScheme, Role, Settings } from "./components/SettingsPage";
 import { TaskViewPage } from "./components/TaskViewPage";
-import { WelcomeRoleDialog } from "./components/WelcomeRoleDialog";
+import { WelcomeRolePage } from "./components/WelcomeRolePage";
 
 import { CANCELLED_KEY, loadSaved } from "./components/calendarStorage";
 import { resolveTaskDates } from "./components/taskSchedule";
@@ -184,6 +184,18 @@ export function App({ startingTasks }: { startingTasks?: Task[] }) {
         setSettings((current) => ({ ...current, role, roleSelected: true }));
     }
 
+    if (!settings.roleSelected) {
+        return (
+            <div
+                className={`app-shell theme-${settings.colorScheme}${settings.darkMode ? " is-dark" : ""}${settings.largeFont ? " is-large-font" : ""}`}
+            >
+                <main className="welcome-main">
+                    <WelcomeRolePage onSelect={selectInitialRole} />
+                </main>
+            </div>
+        );
+    }
+
     return (
         <div
             className={`app-shell theme-${settings.colorScheme}${collapsed ? " is-collapsed" : ""}${settings.darkMode ? " is-dark" : ""}${settings.largeFont ? " is-large-font" : ""}`}
@@ -195,7 +207,7 @@ export function App({ startingTasks }: { startingTasks?: Task[] }) {
                         <a
                             className="brand"
                             href={getPageUrl("home")}
-                            aria-label="SemPlan home"
+                            aria-label="Juan's Semester Planner home"
                             title="Go to Home"
                             onClick={(event) => {
                                 // Ctrl/Cmd-click still opens a new tab.
@@ -207,7 +219,7 @@ export function App({ startingTasks }: { startingTasks?: Task[] }) {
                             <img
                                 className="brand-logo"
                                 src={logos[settings.colorScheme]}
-                                alt="SemPlan"
+                                alt="Juan's Semester Planner"
                             />
                         </a>
                     )}
@@ -342,9 +354,6 @@ export function App({ startingTasks }: { startingTasks?: Task[] }) {
                     onChange={setSettings}
                     onClose={() => setSettingsOpen(false)}
                 />
-            )}
-            {!settings.roleSelected && (
-                <WelcomeRoleDialog onSelect={selectInitialRole} />
             )}
         </div>
     );

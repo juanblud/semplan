@@ -33,20 +33,26 @@ describe("App", () => {
         window.history.replaceState(null, "", "/Task-View");
         const view = render(<App />);
 
-        const chooser = screen.getByRole("dialog", {
-            name: "Select Default Settings",
+        const chooser = screen.getByRole("region", {
+            name: "Welcome!",
         });
-        expect(within(chooser).getByText("I am a:")).toBeInTheDocument();
+        expect(
+            within(chooser).getByText(
+                "Tell us how you plan to use the planner.",
+            ),
+        ).toBeInTheDocument();
         expect(window.location.pathname).toBe("/Home");
         expect(
-            document.querySelector(".main-content .home-header h1"),
-        ).toHaveTextContent("SemPlan");
+            screen.getByRole("heading", { name: "Welcome!" }),
+        ).toBeInTheDocument();
         await user.click(
-            within(chooser).getByRole("button", { name: "Professor" }),
+            within(chooser).getByRole("button", {
+                name: "I'm an instructor",
+            }),
         );
 
         expect(
-            screen.queryByRole("dialog", { name: "Select Default Settings" }),
+            screen.queryByRole("region", { name: "Welcome!" }),
         ).not.toBeInTheDocument();
         expect(window.location.pathname).toBe("/Home");
         expect(
@@ -62,7 +68,7 @@ describe("App", () => {
         view.unmount();
         render(<App />);
         expect(
-            screen.queryByRole("dialog", { name: "Select Default Settings" }),
+            screen.queryByRole("region", { name: "Welcome!" }),
         ).not.toBeInTheDocument();
     });
 
@@ -74,13 +80,14 @@ describe("App", () => {
 
         expect(window.location.pathname).toBe("/Home");
         expect(
-            document.querySelector(".main-content .home-header h1"),
-        ).toHaveTextContent("SemPlan");
+            screen.getByRole("heading", { name: "Welcome!" }),
+        ).toBeInTheDocument();
 
         await user.click(
-            within(
-                screen.getByRole("dialog", { name: "Select Default Settings" }),
-            ).getByRole("button", { name: "Student" }),
+            within(screen.getByRole("region", { name: "Welcome!" })).getByRole(
+                "button",
+                { name: "I'm a student" },
+            ),
         );
         expect(window.location.pathname).toBe("/Home");
         expect(
@@ -119,13 +126,15 @@ describe("App", () => {
         await user.click(screen.getByRole("link", { name: "Calendar" }));
         expect(window.location.pathname).toBe("/Calendar");
 
-        const logo = screen.getByRole("link", { name: "SemPlan home" });
+        const logo = screen.getByRole("link", {
+            name: "Juan's Semester Planner home",
+        });
         expect(logo).toHaveAttribute("href", "/Home");
         await user.click(logo);
 
         expect(window.location.pathname).toBe("/Home");
         expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-            "SemPlan",
+            "Juan's Semester Planner",
         );
     });
 
@@ -467,7 +476,7 @@ describe("App", () => {
         const restored = render(<App />);
         expect(window.location.pathname).toBe("/Home");
         expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-            "SemPlan",
+            "Juan's Semester Planner",
         );
         expect(
             screen.queryByRole("link", { name: "Task View" }),
@@ -557,7 +566,7 @@ describe("App", () => {
         expect(window.location.pathname).toBe("/Home");
         expect(
             document.querySelector(".main-content .home-header h1"),
-        ).toHaveTextContent("SemPlan");
+        ).toHaveTextContent("Juan's Semester Planner");
         expect(
             screen.queryByRole("link", { name: "Task View" }),
         ).not.toBeInTheDocument();
@@ -586,7 +595,7 @@ describe("App", () => {
         render(<App />);
 
         expect(
-            screen.getByRole("heading", { name: "SemPlan" }),
+            screen.getByRole("heading", { name: "Juan's Semester Planner" }),
         ).toBeInTheDocument();
         expect(window.location.pathname).toBe("/Home");
     });
@@ -600,7 +609,7 @@ describe("App", () => {
         fireEvent(window, new PopStateEvent("popstate"));
 
         expect(
-            screen.getByRole("heading", { name: "SemPlan" }),
+            screen.getByRole("heading", { name: "Juan's Semester Planner" }),
         ).toBeInTheDocument();
     });
 
@@ -826,7 +835,7 @@ describe("App", () => {
         render(<App />);
 
         expect(
-            screen.getByRole("heading", { name: "SemPlan" }),
+            screen.getByRole("heading", { name: "Juan's Semester Planner" }),
         ).toBeInTheDocument();
         for (const label of [
             "Home",
@@ -849,14 +858,14 @@ describe("App", () => {
         const { container } = render(<App />);
 
         expect(
-            screen.getByRole("img", { name: "SemPlan" }),
+            screen.getByRole("img", { name: "Juan's Semester Planner" }),
         ).toBeInTheDocument();
         await user.click(
             screen.getByRole("button", { name: "Collapse sidebar" }),
         );
         expect(container.firstChild).toHaveClass("is-collapsed");
         expect(
-            screen.queryByRole("img", { name: "SemPlan" }),
+            screen.queryByRole("img", { name: "Juan's Semester Planner" }),
         ).not.toBeInTheDocument();
         expect(
             screen.getByRole("link", { name: "Calendar" }),
@@ -867,7 +876,7 @@ describe("App", () => {
         );
         expect(container.firstChild).not.toHaveClass("is-collapsed");
         expect(
-            screen.getByRole("img", { name: "SemPlan" }),
+            screen.getByRole("img", { name: "Juan's Semester Planner" }),
         ).toBeInTheDocument();
     });
 

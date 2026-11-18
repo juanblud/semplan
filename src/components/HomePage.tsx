@@ -301,7 +301,7 @@ export function HomePage({
     return (
         <section className="home-page">
             <header className="home-header">
-                <h1>SemPlan</h1>
+                <h1>Juan's Semester Planner</h1>
                 <p>
                     {role === "professor" ?
                         "Your courses at a glance, and what needs planning next."

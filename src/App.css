@@ -2108,6 +2108,49 @@ textarea:focus-visible {
 
 /* ---------- Welcome and Markdown guide dialogs ---------- */
 
+.welcome-main {
+    display: grid;
+    min-height: 100dvh;
+    place-items: center;
+    width: 100%;
+    padding: clamp(24px, 6vw, 72px);
+}
+
+.welcome-role-page {
+    width: min(100%, 760px);
+}
+
+.welcome-role-card {
+    padding: clamp(32px, 6vw, 72px);
+    border: 1px solid var(--line);
+    border-top: 6px solid var(--ud-gold);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: 0 24px 60px rgb(0 0 0 / 18%);
+    text-align: center;
+}
+
+.welcome-role-kicker {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-size: calc(16px + var(--font-bump));
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.welcome-role-card h1 {
+    margin: 0;
+    color: var(--ud-blue);
+    font-size: calc(42px + var(--font-bump));
+    line-height: 1.1;
+}
+
+.welcome-role-prompt {
+    margin: 18px 0 32px;
+    color: var(--muted);
+    font-size: calc(20px + var(--font-bump));
+}
+
 .welcome-role-dialog,
 .markdown-guide-dialog {
     width: min(90vw, 580px);
